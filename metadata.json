@@ -1,0 +1,8 @@
+{
+  "name": "reune.io",
+  "description": "A virtual office environment focused on list-based navigation, simulating physical office dynamics with real-time communication tools.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
