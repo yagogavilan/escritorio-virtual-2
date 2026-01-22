@@ -93,6 +93,9 @@ const start = async () => {
       path: '/api/socket.io',
     });
 
+    // Decorate fastify with io so it's available in routes
+    fastify.decorate('io', io);
+
     await setupWebSocket(io);
 
     console.log(`Server listening on ${server}`);

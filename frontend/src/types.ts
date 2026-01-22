@@ -18,7 +18,7 @@ export interface User {
 export interface Room {
   id: string;
   name: string;
-  type: 'fixed' | 'private';
+  type: 'fixed';
   participants: string[]; // User IDs
   capacity?: number;
   isRestricted: boolean;

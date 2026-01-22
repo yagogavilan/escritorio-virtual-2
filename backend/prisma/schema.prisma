@@ -25,7 +25,6 @@ enum UserStatus {
 
 enum RoomType {
   fixed
-  private
 }
 
 enum TaskStatus {
@@ -49,12 +48,16 @@ enum ChannelType {
 model User {
   id              String     @id @default(uuid())
   email           String     @unique
+  password        String     @default("")
   name            String
   avatar          String     @default("")
   role            UserRole   @default(user)
   status          UserStatus @default(offline)
   statusMessage   String?
   jobTitle        String?
+
+  officeId        String?
+  office          Office?    @relation(fields: [officeId], references: [id])
 
   sectorId        String?
   sector          Sector?    @relation(fields: [sectorId], references: [id])
@@ -91,6 +94,10 @@ model Office {
   workingHoursStart   String  @default("08:00")
   workingHoursEnd     String  @default("18:00")
 
+  users         User[]
+  sectors       Sector[]
+  rooms         Room[]
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -99,6 +106,9 @@ model Sector {
   id        String   @id @default(uuid())
   name      String
   color     String   @default("#3b82f6")
+
+  officeId  String?
+  office    Office?  @relation(fields: [officeId], references: [id])
 
   users     User[]
 
@@ -115,6 +125,9 @@ model Room {
   color           String?
   backgroundImage String?
   icon            String?
+
+  officeId        String?
+  office          Office?  @relation(fields: [officeId], references: [id])
 
   ownerId         String?
   owner           User?    @relation("RoomOwner", fields: [ownerId], references: [id])

@@ -4,7 +4,7 @@ import { prisma } from '../index.js';
 
 const createRoomSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(['fixed', 'private']).default('fixed'),
+  type: z.enum(['fixed']).default('fixed'),
   capacity: z.number().int().positive().default(10),
   isRestricted: z.boolean().default(false),
   color: z.string().optional(),
@@ -14,7 +14,7 @@ const createRoomSchema = z.object({
 
 const updateRoomSchema = z.object({
   name: z.string().min(1).optional(),
-  type: z.enum(['fixed', 'private']).optional(),
+  type: z.enum(['fixed']).optional(),
   capacity: z.number().int().positive().optional(),
   isRestricted: z.boolean().optional(),
   color: z.string().nullable().optional(),

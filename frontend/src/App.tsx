@@ -41,6 +41,7 @@ export default function App() {
 
   // Login Form State
   const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [loginMode, setLoginMode] = useState<'employee' | 'visitor'>('employee');
   const [visitorName, setVisitorName] = useState('');
   const [visitorCode, setVisitorCode] = useState('');
@@ -109,6 +110,16 @@ export default function App() {
     }
   }, [officeData.users]);
 
+  const handleTaskMentioned = useCallback((data: { taskId: string; taskTitle: string; commentId: string; mentionedBy: string; mentionedByName: string }) => {
+    const id = Date.now().toString();
+    setNotifications(prev => [...prev, {
+      id,
+      message: `${data.mentionedByName} mencionou você em "${data.taskTitle}"`,
+      type: 'info'
+    }]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
+  }, []);
+
   // Socket connection
   const socket = useSocket({
     onUserOnline: handleUserOnline,
@@ -118,12 +129,13 @@ export default function App() {
     onRoomUserLeft: handleRoomUserLeft,
     onRoomKnocked: handleRoomKnocked,
     onCallIncoming: handleCallIncoming,
+    onTaskMentioned: handleTaskMentioned,
   });
 
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         setIsLoading(false);
         return;
@@ -160,7 +172,7 @@ export default function App() {
           setCurrentView('office');
         }
       } catch {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
       } finally {
         setIsLoading(false);
       }
@@ -212,6 +224,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentView, officeData.workingHours, currentUser]);
 
+  // Logout when browser/tab is closed
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (currentUser) {
+        try {
+          await authApi.logout();
+        } catch {}
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser]);
+
   // Load office data helper
   const loadOfficeData = async () => {
     try {
@@ -249,15 +280,15 @@ export default function App() {
         if (!visitorCode || !visitorName) return;
 
         const response = await authApi.visitorLogin(visitorName, visitorCode);
-        localStorage.setItem('token', response.data.token);
+        sessionStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
         await loadOfficeData();
         setCurrentView('office');
       } else {
-        if (!emailInput) return;
+        if (!emailInput || !passwordInput) return;
 
-        const response = await authApi.login(emailInput);
-        localStorage.setItem('token', response.data.token);
+        const response = await authApi.login(emailInput, passwordInput);
+        sessionStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
         await loadOfficeData();
 
@@ -282,7 +313,7 @@ export default function App() {
       await authApi.logout();
     } catch {}
 
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     setCurrentUser(null);
     setCurrentView('login');
     setEmailInput('');
@@ -374,12 +405,12 @@ export default function App() {
     setActiveCall(null);
   };
 
-  const handleCreateRoom = async (roomData: { name: string, color: string, image: string, type: 'fixed' | 'private', icon: string }) => {
+  const handleCreateRoom = async (roomData: { name: string, color: string, image: string, isRestricted: boolean, icon: string }) => {
     try {
       const response = await roomsApi.create({
         name: roomData.name,
-        type: roomData.type,
-        isRestricted: roomData.type === 'private',
+        type: 'fixed',
+        isRestricted: roomData.isRestricted,
         capacity: 10,
         color: roomData.color,
         backgroundImage: roomData.image,
@@ -598,19 +629,34 @@ export default function App() {
               <form onSubmit={handleLogin} className="space-y-5">
 
               {loginMode === 'employee' ? (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center gap-2">
-                    <Briefcase size={12}/> Login Corporativo
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="nome@empresa.com"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center gap-2">
+                      <Briefcase size={12}/> Login Corporativo
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      placeholder="nome@empresa.com"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center gap-2">
+                      <Lock size={12}/> Senha
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      placeholder="Sua senha"
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                    />
+                  </div>
+                </>
               ) : (
                 <>
                   <div className="space-y-2">

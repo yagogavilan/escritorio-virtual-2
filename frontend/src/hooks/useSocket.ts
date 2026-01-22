@@ -15,6 +15,7 @@ interface UseSocketOptions {
   onTaskCreated?: (data: { task: any; createdBy: string }) => void;
   onTaskUpdated?: (data: { task: any; updatedBy: string }) => void;
   onTaskAssigned?: (data: { taskId: string; assignedBy: string }) => void;
+  onTaskMentioned?: (data: { taskId: string; taskTitle: string; commentId: string; mentionedBy: string; mentionedByName: string }) => void;
   onAnnouncementNew?: (data: { announcement: any }) => void;
   onCallIncoming?: (data: { callerId: string; type: 'audio' | 'video' }) => void;
   onCallAccepted?: (data: { acceptedBy: string }) => void;
@@ -91,6 +92,9 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
     if (options.onTaskAssigned) {
       socket.on('task:assigned', options.onTaskAssigned);
+    }
+    if (options.onTaskMentioned) {
+      socket.on('task:mentioned', options.onTaskMentioned);
     }
 
     // Announcement events

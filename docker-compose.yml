@@ -13,44 +13,29 @@ services:
       - uploads:/app/uploads
     depends_on:
       - postgres-check
+    ports:
+      - "3001:3001"
     networks:
+      - default
       - traefik-net
-    labels:
-      - "traefik.enable=true"
-      # API routes
-      - "traefik.http.routers.escritorio-api.rule=Host(`escritorio.insightsmeet.com.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.escritorio-api.entrypoints=websecure"
-      - "traefik.http.routers.escritorio-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.escritorio-api.service=escritorio-api"
-      - "traefik.http.services.escritorio-api.loadbalancer.server.port=3001"
 
   frontend:
     build:
       context: ./frontend
     container_name: escritorio-frontend
     restart: unless-stopped
-    networks:
-      - traefik-net
-    labels:
-      - "traefik.enable=true"
-      # Frontend routes (lower priority than API)
-      - "traefik.http.routers.escritorio.rule=Host(`escritorio.insightsmeet.com.br`)"
-      - "traefik.http.routers.escritorio.entrypoints=websecure"
-      - "traefik.http.routers.escritorio.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.escritorio.service=escritorio"
-      - "traefik.http.routers.escritorio.priority=1"
-      - "traefik.http.services.escritorio.loadbalancer.server.port=80"
+    ports:
+      - "8080:80"
 
   # Health check for postgres dependency
   postgres-check:
     image: alpine:latest
     command: sh -c "until nc -z postgres 5432; do echo 'Waiting for PostgreSQL...'; sleep 2; done; echo 'PostgreSQL is ready!'"
-    networks:
-      - traefik-net
 
 volumes:
   uploads:
 
 networks:
+  default:
   traefik-net:
     external: true

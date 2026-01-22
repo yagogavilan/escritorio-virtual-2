@@ -243,21 +243,21 @@ export async function taskRoutes(fastify: FastifyInstance) {
     };
   });
 
-  // Delete task
+  // Delete task (only admin/master)
   fastify.delete('/:id', {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const currentUser = request.user as { id: string; role: string };
 
+    // Only admin or master can delete
+    if (!['admin', 'master'].includes(currentUser.role)) {
+      return reply.status(403).send({ error: 'Forbidden: Only administrators can delete tasks' });
+    }
+
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) {
       return reply.status(404).send({ error: 'Task not found' });
-    }
-
-    // Only creator, admin, or master can delete
-    if (task.creatorId !== currentUser.id && !['admin', 'master'].includes(currentUser.role)) {
-      return reply.status(403).send({ error: 'Forbidden' });
     }
 
     await prisma.task.delete({ where: { id } });
@@ -277,7 +277,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid data' });
     }
 
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await prisma.task.findUnique({
+      where: { id },
+      include: { assignee: true }
+    });
     if (!task) {
       return reply.status(404).send({ error: 'Task not found' });
     }
@@ -302,6 +305,24 @@ export async function taskRoutes(fastify: FastifyInstance) {
         userId: currentUser.id,
       },
     });
+
+    // Notify mentioned users via WebSocket (if available)
+    if (result.data.mentions && result.data.mentions.length > 0) {
+      const io = (fastify as any).io;
+      if (io) {
+        result.data.mentions.forEach((mentionedUserId: string) => {
+          if (mentionedUserId !== currentUser.id) {
+            io.to(`user:${mentionedUserId}`).emit('task:mentioned', {
+              taskId: id,
+              taskTitle: task.title,
+              commentId: comment.id,
+              mentionedBy: currentUser.id,
+              mentionedByName: comment.user.name,
+            });
+          }
+        });
+      }
+    }
 
     return {
       id: comment.id,

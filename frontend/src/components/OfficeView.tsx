@@ -13,7 +13,7 @@ import {
   Layers, UserCog, Copy, RefreshCw
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
-import { uploadApi } from '../api/client';
+import { uploadApi, tasksApi, sectorsApi } from '../api/client';
 
 interface OfficeViewProps {
   office: Office;
@@ -23,7 +23,7 @@ interface OfficeViewProps {
   onEnterRoom: (room: Room) => void;
   onUpdateStatus: (status: UserStatus, message?: string) => void;
   onKnock: (target: User) => void;
-  onCreateRoom: (roomData: { name: string, color: string, image: string, type: 'fixed' | 'private', icon: string }) => void;
+  onCreateRoom: (roomData: { name: string, color: string, image: string, type: 'fixed', icon: string }) => void;
   onDeleteRoom: (roomId: string) => void;
   // New props for Settings
   onUpdateOffice: (data: Partial<Office>) => void;
@@ -109,6 +109,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'kanban' | 'calendar'>('list');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
   // Modals
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -118,6 +119,11 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   // Settings & Profile
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+
+  // Sector Management
+  const [showSectorModal, setShowSectorModal] = useState(false);
+  const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
+  const [sectorFormData, setSectorFormData] = useState({ name: '', color: '#3b82f6' });
 
   // --- Notification State ---
   const [hasNotifications, setHasNotifications] = useState(false);
@@ -329,36 +335,141 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       setEditingTask(null);
   };
 
-  const handleTaskComment = (taskId: string, text: string) => {
-      const mentionMatches = text.match(/@(\w+)/g);
-      const mentionedUserIds: string[] = [];
-      
-      if (mentionMatches) {
-          mentionMatches.forEach(match => {
-              const name = match.substring(1).toLowerCase();
-              const user = office.users.find(u => u.name.toLowerCase().split(' ')[0] === name);
-              if (user && user.id !== currentUser.id) {
-                  mentionedUserIds.push(user.id);
-                  setLocalNotifications(prev => [{
-                      id: `notif-${Date.now()}`,
-                      text: `${currentUser.name} mencionou você em uma tarefa.`,
-                      type: 'task',
-                      referenceId: taskId
-                  }, ...prev]);
-                  setHasNotifications(true);
-              }
-          });
+  const handleDragStart = (e: React.DragEvent, task: Task) => {
+    setDraggedTask(task);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+    e.preventDefault();
+    if (!draggedTask || draggedTask.status === targetStatus) {
+      setDraggedTask(null);
+      return;
+    }
+
+    try {
+      // Atualizar via API
+      await tasksApi.update(draggedTask.id, { status: targetStatus });
+
+      // Atualizar estado local
+      setTasks(prev => prev.map(t =>
+        t.id === draggedTask.id
+          ? { ...t, status: targetStatus, history: [...t.history, {
+              id: `h-${Date.now()}`,
+              userId: currentUser.id,
+              action: `Alterou status para ${TASK_STATUS_CONFIG[targetStatus].label}`,
+              timestamp: new Date()
+            }]}
+          : t
+      ));
+
+      setDraggedTask(null);
+    } catch (error) {
+      console.error('Erro ao atualizar status da tarefa:', error);
+      setDraggedTask(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+  };
+
+  const handleTaskComment = async (taskId: string, text: string, mentions?: string[]) => {
+      try {
+          // Chamar a API para adicionar o comentário com menções
+          await tasksApi.addComment(taskId, text, mentions);
+
+          // Criar notificações locais para usuários mencionados
+          if (mentions && mentions.length > 0) {
+              mentions.forEach(userId => {
+                  if (userId !== currentUser.id) {
+                      setLocalNotifications(prev => [{
+                          id: `notif-${Date.now()}`,
+                          text: `${currentUser.name} mencionou você em uma tarefa.`,
+                          type: 'task',
+                          referenceId: taskId
+                      }, ...prev]);
+                      setHasNotifications(true);
+                  }
+              });
+          }
+
+          // Atualizar o estado local com o novo comentário
+          const newComment: TaskComment = {
+              id: `c-${Date.now()}`,
+              userId: currentUser.id,
+              text,
+              createdAt: new Date(),
+              mentions: mentions || []
+          };
+
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, comments: [...t.comments, newComment] } : t));
+      } catch (error) {
+          console.error('Erro ao adicionar comentário:', error);
+          setLocalNotifications(prev => [{
+              id: `notif-${Date.now()}`,
+              text: 'Erro ao adicionar comentário. Tente novamente.',
+              type: 'task',
+              referenceId: taskId
+          }, ...prev]);
+          setHasNotifications(true);
+      }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+      try {
+          await tasksApi.delete(taskId);
+          setTasks(prev => prev.filter(t => t.id !== taskId));
+          setShowTaskModal(false);
+          setEditingTask(null);
+          setLocalNotifications(prev => [{
+              id: `notif-${Date.now()}`,
+              text: 'Tarefa deletada com sucesso!',
+              type: 'task',
+              referenceId: taskId
+          }, ...prev]);
+          setHasNotifications(true);
+      } catch (error) {
+          console.error('Erro ao deletar tarefa:', error);
+          setLocalNotifications(prev => [{
+              id: `notif-${Date.now()}`,
+              text: 'Erro ao deletar tarefa. Tente novamente.',
+              type: 'task',
+              referenceId: taskId
+          }, ...prev]);
+          setHasNotifications(true);
+      }
+  };
+
+  const handleSaveSector = async () => {
+    if (!sectorFormData.name) {
+      alert('Digite o nome do setor');
+      return;
+    }
+
+    try {
+      if (editingSectorId) {
+        // Editar setor existente
+        const response = await sectorsApi.update(editingSectorId, sectorFormData);
+        office.sectors = office.sectors.map(s => s.id === editingSectorId ? response.data : s);
+      } else {
+        // Criar novo setor
+        const response = await sectorsApi.create(sectorFormData);
+        office.sectors = [...office.sectors, response.data];
       }
 
-      const newComment: TaskComment = {
-          id: `c-${Date.now()}`,
-          userId: currentUser.id,
-          text,
-          createdAt: new Date(),
-          mentions: mentionedUserIds
-      };
-
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, comments: [...t.comments, newComment] } : t));
+      setShowSectorModal(false);
+      setEditingSectorId(null);
+      setSectorFormData({ name: '', color: '#3b82f6' });
+    } catch (error) {
+      console.error('Erro ao salvar setor:', error);
+      alert('Erro ao salvar setor. Tente novamente.');
+    }
   };
 
   const handleTaskClick = (task: Task) => {
@@ -811,12 +922,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                              {TASK_STATUS_CONFIG[status].label}
                                              <span className="bg-white px-2 py-0.5 rounded-full text-xs shadow-sm text-slate-600 border border-slate-200">{tasks.filter(t => t.status === status).length}</span>
                                          </div>
-                                         <div className="p-3 space-y-3 overflow-y-auto flex-1 bg-slate-100/50">
+                                         <div className="p-3 space-y-3 overflow-y-auto flex-1 bg-slate-100/50" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, status)}>
                                              {tasks.filter(t => t.status === status).map(task => {
                                                   const assignee = office.users.find(u => u.id === task.assigneeId);
                                                   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
                                                   return (
-                                                     <div key={task.id} onClick={() => handleTaskClick(task)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all group">
+                                                     <div key={task.id} onClick={() => handleTaskClick(task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all group ${draggedTask?.id === task.id ? 'opacity-50' : ''}`} draggable="true" onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
                                                          <div className="flex justify-between items-start mb-3">
                                                              <div className="flex gap-1">
                                                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TASK_PRIORITY_CONFIG[task.priority].color}`}>{TASK_PRIORITY_CONFIG[task.priority].label}</span>
@@ -892,13 +1003,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       </div>
 
       {showTaskModal && (
-          <TaskModal 
+          <TaskModal
               task={editingTask}
               users={office.users}
               currentUser={currentUser}
               onClose={() => setShowTaskModal(false)}
               onSave={handleSaveTask}
               onComment={handleTaskComment}
+              onDelete={handleDeleteTask}
           />
       )}
 
@@ -969,11 +1081,57 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       )}
 
       {showEditProfileModal && (
-          <EditProfileModal 
+          <EditProfileModal
               user={currentUser}
               onClose={() => setShowEditProfileModal(false)}
               onUpdate={onUpdateUser}
           />
+      )}
+
+      {showSectorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-800">{editingSectorId ? 'Editar Setor' : 'Novo Setor'}</h3>
+              <button onClick={() => setShowSectorModal(false)}><X size={20} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Nome do Setor</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl bg-white text-black"
+                  value={sectorFormData.name}
+                  onChange={(e) => setSectorFormData({...sectorFormData, name: e.target.value})}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Cor</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    className="h-10 w-10 border-0 rounded cursor-pointer"
+                    value={sectorFormData.color}
+                    onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    className="w-32 px-4 py-2 border border-slate-300 rounded-xl uppercase bg-white text-black"
+                    value={sectorFormData.color}
+                    onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveSector}
+                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700"
+              >
+                {editingSectorId ? 'Salvar Alterações' : 'Criar Setor'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
@@ -1261,10 +1419,28 @@ const SettingsModal: React.FC<{
                                 {office.sectors.map(s => (
                                     <div key={s.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                                         <div className="flex items-center gap-3"><div className={`w-4 h-4 rounded-full ${s.color}`}></div><span className="font-medium text-slate-700">{s.name}</span></div>
-                                        <button className="text-xs text-indigo-600 font-bold hover:underline">Editar</button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingSectorId(s.id);
+                                            setSectorFormData({ name: s.name, color: s.color });
+                                            setShowSectorModal(true);
+                                          }}
+                                          className="text-xs text-indigo-600 font-bold hover:underline"
+                                        >
+                                          Editar
+                                        </button>
                                     </div>
                                 ))}
-                                <button className="w-full py-2 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-slate-400">+ Adicionar Setor</button>
+                                <button
+                                  onClick={() => {
+                                    setEditingSectorId(null);
+                                    setSectorFormData({ name: '', color: '#3b82f6' });
+                                    setShowSectorModal(true);
+                                  }}
+                                  className="w-full py-2 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-slate-400"
+                                >
+                                  + Adicionar Setor
+                                </button>
                              </div>
                         )}
                     </div>
@@ -1385,19 +1561,17 @@ const EditProfileModal: React.FC<{
 
 const CreateRoomModal: React.FC<{
     onClose: () => void;
-    onCreate: (data: { name: string, color: string, image: string, type: 'fixed' | 'private', icon: string }) => void;
+    onCreate: (data: { name: string, color: string, image: string, type: 'fixed', icon: string }) => void;
 }> = ({ onClose, onCreate }) => {
     const [name, setName] = useState('');
-    const [type, setType] = useState<'fixed'|'private'>('fixed');
     const [icon, setIcon] = useState('default');
-    const handleCreate = () => { if(!name) return; onCreate({ name, type, icon, color: '#6366f1', image: `https://picsum.photos/seed/${name}/400/200` }); };
+    const handleCreate = () => { if(!name) return; onCreate({ name, type: 'fixed', icon, color: '#6366f1', image: `https://picsum.photos/seed/${name}/400/200` }); };
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
                 <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Nova Sala</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div>
                 <div className="space-y-4">
                     <div><label className="block text-sm font-bold text-slate-700 mb-1">Nome da Sala</label><input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-xl text-slate-800" autoFocus /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-1">Tipo</label><div className="flex gap-2"><button onClick={() => setType('fixed')} className={`flex-1 py-2 rounded-xl text-sm font-bold border ${type === 'fixed' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-600'}`}>Aberta</button><button onClick={() => setType('private')} className={`flex-1 py-2 rounded-xl text-sm font-bold border ${type === 'private' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-600'}`}>Privada</button></div></div>
                     <button onClick={handleCreate} disabled={!name} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Criar Sala</button>
                 </div>
             </div>
@@ -1452,4 +1626,5 @@ const CreateGroupModal: React.FC<{ users: User[]; onClose: () => void; onCreate:
 const AddPeopleModal: React.FC<{ users: User[]; onClose: () => void; onAdd: (userIds: string[]) => void; }> = ({ users, onClose, onAdd }) => { const [selected, setSelected] = useState<string[]>([]); const toggleUser = (id: string) => { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Adicionar Pessoas</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div>{users.length === 0 ? <p className="text-slate-500 text-center py-4">Todos já estão no grupo.</p> : (<div className="flex-1 overflow-y-auto space-y-2 mb-4">{users.map(u => (<button key={u.id} onClick={() => toggleUser(u.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left border ${selected.includes(u.id) ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}><img src={u.avatar} className="w-8 h-8 rounded-full" /><span className="font-semibold text-sm text-slate-700 flex-1">{u.name}</span>{selected.includes(u.id) && <Check size={16} className="text-indigo-600" />}</button>))}</div>)}<button onClick={() => onAdd(selected)} disabled={selected.length === 0} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Adicionar</button></div></div>) }
 const ComposeAnnouncementModal: React.FC<{ users: User[]; onClose: () => void; onSend: (data: Partial<Announcement>) => void; }> = ({ users, onClose, onSend }) => { const [title, setTitle] = useState(''); const [message, setMessage] = useState(''); return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Megaphone className="text-amber-500" /> Novo Comunicado</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div><div className="space-y-4"><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Título do anúncio..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" /><textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Escreva sua mensagem aqui..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none" /><button onClick={() => onSend({ title, message })} disabled={!title || !message} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Publicar</button></div></div></div>) }
 const AnnouncementOverlay: React.FC<{ announcement: Announcement; onClose: () => void; }> = ({ announcement, onClose }) => { return (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in-95 duration-300"><div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative"><div className="h-32 bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center relative"><Megaphone size={64} className="text-white/20 absolute" /><button onClick={onClose} className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-sm transition-colors"><X size={20}/></button></div><div className="p-8 text-center"><h2 className="text-2xl font-bold text-slate-800 mb-4">{announcement.title}</h2><p className="text-slate-600 leading-relaxed text-lg mb-8">{announcement.message}</p><button onClick={onClose} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Entendido</button></div></div></div>) }
-const TaskModal: React.FC<{ task: Task | null, users: User[], currentUser: User, onClose: () => void, onSave: (t: Partial<Task>) => void, onComment: (id: string, text: string) => void }> = ({ task, users, currentUser, onClose, onSave, onComment }) => { const [title, setTitle] = useState(task?.title || ''); const [description, setDescription] = useState(task?.description || ''); const [status, setStatus] = useState<TaskStatus>(task?.status || 'todo'); const [priority, setPriority] = useState<TaskPriority>(task?.priority || 'medium'); const [assigneeId, setAssigneeId] = useState(task?.assigneeId || currentUser.id); const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''); const [tagsInput, setTagsInput] = useState(task?.tags.join(', ') || ''); const [commentText, setCommentText] = useState(''); const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details'); const [attachments, setAttachments] = useState<TaskAttachment[]>(task?.attachments || []); const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) { const newFiles = Array.from(e.target.files).map(f => ({ id: `file-${Date.now()}-${Math.random()}`, name: f.name, url: URL.createObjectURL(f), type: f.type, size: f.size })); setAttachments([...attachments, ...newFiles]); } }; const handleSave = () => { onSave({ title, description, status, priority, assigneeId, dueDate: dueDate ? new Date(dueDate) : undefined, tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean), attachments }); }; const handleSendComment = () => { if (commentText.trim() && task) { onComment(task.id, commentText); setCommentText(''); } }; const isOverdue = task?.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'; return (<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-fade-in-up flex flex-col h-[85vh]"><div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0"><div className="flex items-center gap-3"><div className="bg-blue-600 text-white p-2 rounded-lg"><ClipboardList size={20} /></div><div><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">{task ? 'Detalhes da Tarefa' : 'Nova Tarefa'} {isOverdue && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full border border-red-200 flex items-center gap-1"><AlertCircle size={10}/> Atrasado</span>}</h3>{task && <p className="text-xs text-slate-500">Criado em {task.createdAt.toLocaleDateString()} por {users.find(u => u.id === task.creatorId)?.name || 'Desconhecido'}</p>}</div></div><button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button></div><div className="flex border-b border-slate-200 px-6 shrink-0 bg-white gap-6"><button onClick={() => setActiveTab('details')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><FileText size={16}/> Detalhes</button>{task && (<button onClick={() => setActiveTab('comments')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'comments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><MessageSquare size={16}/> Comentários <span className={`px-1.5 rounded-full text-xs ${activeTab === 'comments' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{task.comments.length}</span></button>)}{task && (<button onClick={() => setActiveTab('history')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><History size={16}/> Histórico</button>)}</div><div className="flex-1 overflow-y-auto p-8 bg-white">{activeTab === 'details' && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-8"><div className="lg:col-span-2 space-y-6"><div><label className="block text-sm font-bold text-slate-700 mb-1">Título</label><input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all font-bold text-lg text-slate-800 placeholder-slate-400" value={title} onChange={e => setTitle(e.target.value)} placeholder="O que precisa ser feito?" /></div><div><label className="block text-sm font-bold text-slate-700 mb-1">Descrição</label><textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all min-h-[150px] text-slate-700 placeholder-slate-400" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Anexos</label><div className="flex flex-wrap gap-3">{attachments.map(att => (<div key={att.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-sm text-slate-700"><FileText size={16} className="text-slate-400" /><a href={att.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[150px] font-medium">{att.name}</a><button onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-slate-400 hover:text-red-500 transition-colors"><X size={14}/></button></div>))}<label className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 border-dashed px-4 py-2 rounded-lg text-sm text-slate-600 font-medium cursor-pointer transition-all hover:border-slate-400"><Upload size={16} /> Adicionar Arquivo<input type="file" multiple className="hidden" onChange={handleFileUpload} /></label></div></div></div><div className="space-y-6"><div className="bg-slate-50 p-5 rounded-2xl space-y-5 border border-slate-200 shadow-sm"><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>{Object.entries(TASK_STATUS_CONFIG).map(([key, config]) => (<option key={key} value={key}>{config.label}</option>))}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prioridade</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Responsável</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prazo (Data e Hora)</label><input type="datetime-local" className={`w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none ${isOverdue ? 'border-red-300 text-red-600 bg-red-50' : ''}`} value={dueDate} onChange={e => setDueDate(e.target.value)} /></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tags (separar por vírgula)</label><input type="text" className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="dev, marketing..." value={tagsInput} onChange={e => setTagsInput(e.target.value)} /></div></div></div></div>)}{activeTab === 'comments' && task && (<div className="flex flex-col h-full"><div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">{task.comments.length === 0 && <div className="flex flex-col items-center justify-center h-40 text-slate-400"><MessageSquare size={32} className="mb-2 opacity-50"/><p>Nenhum comentário ainda.</p></div>}{task.comments.map(c => { const user = users.find(u => u.id === c.userId); return (<div key={c.id} className="flex gap-4 group"><img src={user?.avatar} className="w-10 h-10 rounded-full mt-1 border border-slate-200" /><div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-200 flex-1 hover:border-slate-300 transition-colors shadow-sm"><div className="flex justify-between items-baseline mb-2"><span className="font-bold text-slate-800 text-sm">{user?.name}</span><span className="text-xs text-slate-400">{c.createdAt.toLocaleString()}</span></div><p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.text}</p></div></div>) })}</div><div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-auto shadow-inner"><textarea className="w-full bg-transparent text-sm focus:outline-none min-h-[80px] placeholder-slate-400 text-slate-700 resize-none" placeholder="Escreva um comentário... (Use @ para mencionar)" value={commentText} onChange={e => setCommentText(e.target.value)}></textarea><div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200"><span className="text-xs text-slate-400 font-medium">Mencione @Nome para notificar</span><button onClick={handleSendComment} disabled={!commentText.trim()} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">Enviar</button></div></div></div>)}{activeTab === 'history' && task && (<div className="space-y-0">{task.history.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).map((h, i) => { const user = users.find(u => u.id === h.userId); return (<div key={h.id} className="flex gap-4 py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded-lg transition-colors"><div className="flex flex-col items-center"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200"><History size={14}/></div>{i !== task.history.length - 1 && <div className="w-px h-full bg-slate-200 my-1"></div>}</div><div className="text-sm pt-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800">{user?.name}</span><span className="text-xs text-slate-400">{h.timestamp.toLocaleString()}</span></div><p className="text-slate-600">{h.action}</p></div></div>) })}</div>)}</div><div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-slate-50 rounded-b-3xl"><button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button><button onClick={handleSave} className="px-8 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2"><Check size={18} /> Salvar Tarefa</button></div></div></div>); };
+const TaskModal: React.FC<{ task: Task | null, users: User[], currentUser: User, onClose: () => void, onSave: (t: Partial<Task>) => void, onComment: (id: string, text: string, mentions?: string[]) => void, onDelete?: (id: string) => void }> = ({ task, users, currentUser, onClose, onSave, onComment, onDelete }) => { const [title, setTitle] = useState(task?.title || ''); const [description, setDescription] = useState(task?.description || ''); const [status, setStatus] = useState<TaskStatus>(task?.status || 'todo'); const [priority, setPriority] = useState<TaskPriority>(task?.priority || 'medium'); const [assigneeId, setAssigneeId] = useState(task?.assigneeId || currentUser.id); const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''); const [tagsInput, setTagsInput] = useState(task?.tags.join(', ') || ''); const [commentText, setCommentText] = useState(''); const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details'); const [attachments, setAttachments] = useState<TaskAttachment[]>(task?.attachments || []); const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) { const newFiles = Array.from(e.target.files).map(f => ({ id: `file-${Date.now()}-${Math.random()}`, name: f.name, url: URL.createObjectURL(f), type: f.type, size: f.size })); setAttachments([...attachments, ...newFiles]); } }; const handleSave = () => { onSave({ title, description, status, priority, assigneeId, dueDate: dueDate ? new Date(dueDate) : undefined, tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean), attachments }); }; const handleSendComment = () => { if (commentText.trim() && task) { // Detectar menções no formato @NomeDoUsuário const mentionMatches = commentText.match(/@(\S+)/g); const mentionedUserIds: string[] = []; if (mentionMatches) { mentionMatches.forEach(match => { // Remove o @ do início const mentionedName = match.substring(1); // Procurar o usuário por nome (case-insensitive) const user = users.find(u => u.name.toLowerCase().includes(mentionedName.toLowerCase())); if (user) { mentionedUserIds.push(user.id); } }); } onComment(task.id, commentText, mentionedUserIds); setCommentText(''); } }; const isOverdue = task?.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'; return (<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-fade-in-up flex flex-col h-[85vh]"><div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0"><div className="flex items-center gap-3"><div className="bg-blue-600 text-white p-2 rounded-lg"><ClipboardList size={20} /></div><div><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">{task ? 'Detalhes da Tarefa' : 'Nova Tarefa'} {isOverdue && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full border border-red-200 flex items-center gap-1"><AlertCircle size={10}/> Atrasado</span>}</h3>{task && <p className="text-xs text-slate-500">Criado em {task.createdAt.toLocaleDateString()} por {users.find(u => u.id === task.creatorId)?.name || 'Desconhecido'}</p>}</div></div><button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button></div><div className="flex border-b border-slate-200 px-6 shrink-0 bg-white gap-6"><button onClick={() => setActiveTab('details')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><FileText size={16}/> Detalhes</button>{task && (<button onClick={() => setActiveTab('comments')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'comments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><MessageSquare size={16}/> Comentários <span className={`px-1.5 rounded-full text-xs ${activeTab === 'comments' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{task.comments.length}</span></button>)}{task && (<button onClick={() => setActiveTab('history')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><History size={16}/> Histórico</button>)}</div><div className="flex-1 overflow-y-auto p-8 bg-white">{activeTab === 'details' && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-8"><div className="lg:col-span-2 space-y-6"><div><label className="block text-sm font-bold text-slate-700 mb-1">Título</label><input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all font-bold text-lg text-slate-800 placeholder-slate-400" value={title} onChange={e => setTitle(e.target.value)} placeholder="O que precisa ser feito?" /></div><div><label className="block text-sm font-bold text-slate-700 mb-1">Descrição</label><textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all min-h-[150px] text-slate-700 placeholder-slate-400" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Anexos</label><div className="flex flex-wrap gap-3">{attachments.map(att => (<div key={att.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-sm text-slate-700"><FileText size={16} className="text-slate-400" /><a href={att.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[150px] font-medium">{att.name}</a><button onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-slate-400 hover:text-red-500 transition-colors"><X size={14}/></button></div>))}<label className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 border-dashed px-4 py-2 rounded-lg text-sm text-slate-600 font-medium cursor-pointer transition-all hover:border-slate-400"><Upload size={16} /> Adicionar Arquivo<input type="file" multiple className="hidden" onChange={handleFileUpload} /></label></div></div></div><div className="space-y-6"><div className="bg-slate-50 p-5 rounded-2xl space-y-5 border border-slate-200 shadow-sm"><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>{Object.entries(TASK_STATUS_CONFIG).map(([key, config]) => (<option key={key} value={key}>{config.label}</option>))}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prioridade</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Responsável</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prazo (Data e Hora)</label><input type="datetime-local" className={`w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none ${isOverdue ? 'border-red-300 text-red-600 bg-red-50' : ''}`} value={dueDate} onChange={e => setDueDate(e.target.value)} /></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tags (separar por vírgula)</label><input type="text" className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="dev, marketing..." value={tagsInput} onChange={e => setTagsInput(e.target.value)} /></div></div></div></div>)}{activeTab === 'comments' && task && (<div className="flex flex-col h-full"><div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">{task.comments.length === 0 && <div className="flex flex-col items-center justify-center h-40 text-slate-400"><MessageSquare size={32} className="mb-2 opacity-50"/><p>Nenhum comentário ainda.</p></div>}{task.comments.map(c => { const user = users.find(u => u.id === c.userId); return (<div key={c.id} className="flex gap-4 group"><img src={user?.avatar} className="w-10 h-10 rounded-full mt-1 border border-slate-200" /><div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-200 flex-1 hover:border-slate-300 transition-colors shadow-sm"><div className="flex justify-between items-baseline mb-2"><span className="font-bold text-slate-800 text-sm">{user?.name}</span><span className="text-xs text-slate-400">{c.createdAt.toLocaleString()}</span></div><p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.text}</p></div></div>) })}</div><div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-auto shadow-inner"><textarea className="w-full bg-transparent text-sm focus:outline-none min-h-[80px] placeholder-slate-400 text-slate-700 resize-none" placeholder="Escreva um comentário... (Use @ para mencionar)" value={commentText} onChange={e => setCommentText(e.target.value)}></textarea><div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200"><span className="text-xs text-slate-400 font-medium">Mencione @Nome para notificar</span><button onClick={handleSendComment} disabled={!commentText.trim()} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">Enviar</button></div></div></div>)}{activeTab === 'history' && task && (<div className="space-y-0">{task.history.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).map((h, i) => { const user = users.find(u => u.id === h.userId); return (<div key={h.id} className="flex gap-4 py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded-lg transition-colors"><div className="flex flex-col items-center"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200"><History size={14}/></div>{i !== task.history.length - 1 && <div className="w-px h-full bg-slate-200 my-1"></div>}</div><div className="text-sm pt-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800">{user?.name}</span><span className="text-xs text-slate-400">{h.timestamp.toLocaleString()}</span></div><p className="text-slate-600">{h.action}</p></div></div>) })}</div>)}</div><div className="p-6 border-t border-slate-100 flex justify-between gap-3 shrink-0 bg-slate-50 rounded-b-3xl"><div>{task && onDelete && (currentUser.role === 'admin' || currentUser.role === 'master') && (<button onClick={() => onDelete(task.id)} className="px-6 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center gap-2"><Trash2 size={18} /> Deletar</button>)}</div><div className="flex gap-3"><button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button><button onClick={handleSave} className="px-8 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2"><Check size={18} /> Salvar Tarefa</button></div></div></div></div>); };
+

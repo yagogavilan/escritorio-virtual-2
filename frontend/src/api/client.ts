@@ -11,7 +11,7 @@ export const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -23,7 +23,7 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
       window.location.href = '/';
     }
     return Promise.reject(error);
@@ -32,17 +32,20 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  login: (email: string) => api.post('/auth/login', { email }),
+  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
   visitorLogin: (name: string, code: string) =>
     api.post('/auth/visitor', { name, code }),
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // Users API
 export const usersApi = {
   getAll: () => api.get('/users'),
   get: (id: string) => api.get(`/users/${id}`),
+  create: (data: any) => api.post('/users', data),
   update: (id: string, data: any) => api.put(`/users/${id}`, data),
   updateStatus: (id: string, status: string, statusMessage?: string) =>
     api.patch(`/users/${id}/status`, { status, statusMessage }),
@@ -53,6 +56,11 @@ export const usersApi = {
 export const officeApi = {
   get: () => api.get('/office'),
   update: (data: any) => api.put('/office', data),
+  getAll: () => api.get('/office/all'), // Master only
+  create: (data: any) => api.post('/office/create', data), // Master only
+  updateOffice: (id: string, data: any) => api.put(`/office/${id}`, data), // Master only
+  delete: (id: string) => api.delete(`/office/${id}`), // Master only
+  getUsers: (id: string) => api.get(`/office/${id}/users`), // Master only
 };
 
 // Sectors API

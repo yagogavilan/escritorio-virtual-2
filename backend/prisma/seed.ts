@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -37,6 +38,7 @@ async function main() {
       create: {
         id: sectorData.name.toLowerCase(),
         ...sectorData,
+        officeId: 'default',
       },
     });
     console.log('Created sector:', sector.name);
@@ -46,7 +48,7 @@ async function main() {
   const rooms = [
     { name: 'Sala de Reunião 1', type: 'fixed' as const, capacity: 10, isRestricted: false, color: '#3b82f6', icon: '🏢' },
     { name: 'Sala de Reunião 2', type: 'fixed' as const, capacity: 8, isRestricted: false, color: '#22c55e', icon: '🏢' },
-    { name: 'Sala Privada', type: 'private' as const, capacity: 4, isRestricted: true, color: '#f97316', icon: '🔒' },
+    { name: 'Sala Executiva', type: 'fixed' as const, capacity: 6, isRestricted: true, color: '#f97316', icon: '🔒' },
     { name: 'Auditório', type: 'fixed' as const, capacity: 50, isRestricted: false, color: '#a855f7', icon: '🎭' },
     { name: 'Café Virtual', type: 'fixed' as const, capacity: 20, isRestricted: false, color: '#eab308', icon: '☕' },
   ];
@@ -58,23 +60,31 @@ async function main() {
       create: {
         id: roomData.name.toLowerCase().replace(/\s+/g, '-'),
         ...roomData,
+        officeId: 'default',
       },
     });
     console.log('Created room:', room.name);
   }
 
   // Create master user
-  const masterEmail = process.env.MASTER_EMAIL || 'admin@example.com';
+  const masterEmail = process.env.MASTER_EMAIL || 'yago.tgavilan@gmail.com';
+  const hashedPassword = await bcrypt.hash('gavilan12', 10);
+
   const masterUser = await prisma.user.upsert({
     where: { email: masterEmail },
-    update: { role: 'master' },
+    update: {
+      role: 'master',
+      password: hashedPassword,
+    },
     create: {
       email: masterEmail,
-      name: 'Admin',
+      name: 'Yago Gavilan',
+      password: hashedPassword,
       role: 'master',
       status: 'offline',
-      jobTitle: 'Administrador',
+      jobTitle: 'Administrador do Sistema',
       sectorId: 'tecnologia',
+      officeId: null, // Master não pertence a nenhum escritório específico
     },
   });
   console.log('Created master user:', masterUser.email);

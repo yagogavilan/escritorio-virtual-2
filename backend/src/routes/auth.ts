@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../index.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
+  password: z.string().min(6),
 });
 
 const visitorLoginSchema = z.object({
@@ -11,33 +13,40 @@ const visitorLoginSchema = z.object({
   code: z.string().min(1),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(6),
+  newPassword: z.string().min(6),
+});
+
 export async function authRoutes(fastify: FastifyInstance) {
   // Login by email (for employees)
   fastify.post('/login', async (request, reply) => {
     const result = loginSchema.safeParse(request.body);
     if (!result.success) {
-      return reply.status(400).send({ error: 'Invalid email' });
+      return reply.status(400).send({ error: 'Email e senha são obrigatórios' });
     }
 
-    const { email } = result.data;
+    const { email, password } = result.data;
 
-    // Find or create user
+    // Find user
     let user = await prisma.user.findUnique({
       where: { email },
-      include: { sector: true },
+      include: { sector: true, office: true },
     });
 
     if (!user) {
-      // Create new user with default role
-      user = await prisma.user.create({
-        data: {
-          email,
-          name: email.split('@')[0],
-          role: 'user',
-          status: 'online',
-        },
-        include: { sector: true },
-      });
+      return reply.status(401).send({ error: 'Credenciais inválidas' });
+    }
+
+    // Check if user has password set
+    if (!user.password) {
+      return reply.status(401).send({ error: 'Usuário não possui senha configurada. Entre em contato com o administrador.' });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return reply.status(401).send({ error: 'Credenciais inválidas' });
     }
 
     // Check if user is master
@@ -46,7 +55,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       user = await prisma.user.update({
         where: { id: user.id },
         data: { role: 'master' },
-        include: { sector: true },
+        include: { sector: true, office: true },
       });
     }
 
@@ -60,6 +69,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       id: user.id,
       email: user.email,
       role: user.role,
+      officeId: user.officeId,
     });
 
     return {
@@ -75,6 +85,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         jobTitle: user.jobTitle,
         sector: user.sector?.name || '',
         sectorId: user.sectorId,
+        officeId: user.officeId,
+        office: user.office ? { id: user.office.id, name: user.office.name } : null,
       },
     };
   });
@@ -167,6 +179,48 @@ export async function authRoutes(fastify: FastifyInstance) {
       currentRoomId: user.currentRoomId,
       visitorInviteId: user.visitorInviteId,
     };
+  });
+
+  // Change password
+  fastify.post('/change-password', {
+    preHandler: [(fastify as any).authenticate],
+  }, async (request, reply) => {
+    const { id } = request.user as { id: string };
+
+    const result = changePasswordSchema.safeParse(request.body);
+    if (!result.success) {
+      return reply.status(400).send({ error: 'Senha atual e nova senha são obrigatórias (mínimo 6 caracteres)' });
+    }
+
+    const { currentPassword, newPassword } = result.data;
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      return reply.status(404).send({ error: 'Usuário não encontrado' });
+    }
+
+    // Verify current password
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return reply.status(401).send({ error: 'Senha atual incorreta' });
+      }
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true, message: 'Senha alterada com sucesso' };
   });
 
   // Logout
