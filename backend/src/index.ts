@@ -82,9 +82,7 @@ await fastify.register(uploadRoutes, { prefix: '/api/upload' });
 // Start server
 const start = async () => {
   try {
-    const server = await fastify.listen({ port: 3001, host: '0.0.0.0' });
-
-    // Setup Socket.io
+    // Setup Socket.io BEFORE starting the server
     const io = new Server(fastify.server, {
       cors: {
         origin: true,
@@ -93,9 +91,13 @@ const start = async () => {
       path: '/api/socket.io',
     });
 
-    // Decorate fastify with io so it's available in routes
+    // Decorate fastify with io BEFORE starting (must be done before listen)
     fastify.decorate('io', io);
 
+    // Now start the server
+    const server = await fastify.listen({ port: 3001, host: '0.0.0.0' });
+
+    // Setup WebSocket handlers
     await setupWebSocket(io);
 
     console.log(`Server listening on ${server}`);
