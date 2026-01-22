@@ -1,3 +1,22 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+.next/
+out/
+
+# Environment files - IMPORTANT: Never commit these!
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
 # Logs
 logs
 *.log
@@ -7,18 +26,37 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# OS files
+.DS_Store
+Thumbs.db
 
-# Editor directories and files
+# IDE/Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
+*.swp
+*.swo
+*.sw?
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.sublime-workspace
+*.sublime-project
+
+# Testing
+coverage/
+.nyc_output/
+
+# Prisma
+*.db
+*.db-journal
+
+# Uploads (runtime data)
+uploads/
+
+# Misc
+*.tsbuildinfo
+.eslintcache
+.cache/
+*.local

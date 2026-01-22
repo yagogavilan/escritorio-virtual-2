@@ -13,6 +13,7 @@ import {
   Layers, UserCog, Copy, RefreshCw
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
+import { uploadApi } from '../api/client';
 
 interface OfficeViewProps {
   office: Office;
@@ -1280,6 +1281,38 @@ const EditProfileModal: React.FC<{
 }> = ({ user, onClose, onUpdate }) => {
     const [name, setName] = useState(user.name);
     const [avatar, setAvatar] = useState(user.avatar);
+    const [uploading, setUploading] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione uma imagem.');
+            return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (ev) => setPreviewUrl(ev.target?.result as string);
+        reader.readAsDataURL(file);
+
+        // Upload file
+        setUploading(true);
+        try {
+            const response = await uploadApi.avatar(file);
+            setAvatar(response.data.url);
+        } catch (err) {
+            console.error('Upload failed:', err);
+            alert('Falha ao enviar imagem. Tente novamente.');
+            setPreviewUrl(null);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1287,19 +1320,62 @@ const EditProfileModal: React.FC<{
         onClose();
     };
 
+    const displayAvatar = previewUrl || avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff`;
+
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
                 <h3 className="text-xl font-bold text-slate-800 mb-4">Editar Perfil</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="flex justify-center mb-4">
-                        <img src={avatar} className="w-24 h-24 rounded-full border-4 border-indigo-100 object-cover" />
+                    <div className="flex flex-col items-center mb-4">
+                        <div className="relative group">
+                            <img
+                                src={displayAvatar}
+                                className={`w-24 h-24 rounded-full border-4 border-indigo-100 object-cover ${uploading ? 'opacity-50' : ''}`}
+                                alt="Avatar"
+                            />
+                            {uploading && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                disabled={uploading}
+                            >
+                                <Upload className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                            disabled={uploading}
+                        >
+                            <Upload size={14} /> Alterar foto
+                        </button>
                     </div>
-                    <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome</label><input type="text" className="w-full p-2 border rounded-lg text-slate-800" value={name} onChange={e => setName(e.target.value)} /></div>
-                    <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Avatar URL</label><input type="text" className="w-full p-2 border rounded-lg text-slate-800" value={avatar} onChange={e => setAvatar(e.target.value)} /></div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome</label>
+                        <input
+                            type="text"
+                            className="w-full p-2 border rounded-lg text-slate-800"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                        />
+                    </div>
                     <div className="flex gap-2 pt-2">
                         <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg text-slate-600 font-bold hover:bg-slate-50">Cancelar</button>
-                        <button type="submit" className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700">Salvar</button>
+                        <button type="submit" disabled={uploading} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50">Salvar</button>
                     </div>
                 </form>
             </div>

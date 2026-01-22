@@ -12,8 +12,8 @@ export const SECTORS = [
 export const MOCK_USERS: User[] = [
   {
     id: 'u1',
-    name: 'Yago Gavilan',
-    email: 'yago.tgavilan@gmail.com',
+    name: 'Admin User',
+    email: 'admin@example.com',
     avatar: 'https://picsum.photos/200/200?random=1',
     role: 'master',
     sector: 'exec',
