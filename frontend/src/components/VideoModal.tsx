@@ -224,10 +224,18 @@ export const VideoModal: React.FC<VideoModalProps> = ({ currentUser, participant
             inactiveColor="bg-red-500 text-white hover:bg-red-600"
         />
 
-        <ControlBtn 
-            isActive={isScreenSharing} 
-            onClick={() => setIsScreenSharing(!isScreenSharing)} 
-            onIcon={Monitor} 
+        {/* TODO: Implementar compartilhamento de tela real usando WebRTC
+            Atualmente apenas alterna o estado local. Implementação completa requer:
+            1. Capturar stream da tela com navigator.mediaDevices.getDisplayMedia()
+            2. Adicionar track de vídeo da tela ao peer connection
+            3. Sinalizar para outros participantes que está compartilhando tela
+            4. Substituir feed de vídeo da câmera pelo feed da tela
+            5. Gerenciar transição entre câmera e tela
+        */}
+        <ControlBtn
+            isActive={isScreenSharing}
+            onClick={() => setIsScreenSharing(!isScreenSharing)}
+            onIcon={Monitor}
             offIcon={Monitor}
             label="Compartilhar Tela"
             activeColor="bg-green-500 text-white"
@@ -236,10 +244,20 @@ export const VideoModal: React.FC<VideoModalProps> = ({ currentUser, participant
         
         <div className="w-px h-10 bg-slate-600 mx-4"></div>
 
-        <ControlBtn 
-            isActive={false} 
-            onClick={() => {}} 
-            onIcon={MessageSquare} 
+        {/* TODO: Implementar chat durante videochamada
+            O backend já tem suporte a canais de chat (channelsApi).
+            Para integrar chat nas reuniões:
+            1. Criar ou reutilizar canal de chat para a sala de reunião
+            2. Adicionar sidebar/drawer com mensagens durante a chamada
+            3. Usar channelsApi.getMessages() para carregar histórico
+            4. Usar channelsApi.sendMessage() para enviar mensagens
+            5. Usar WebSocket para receber mensagens em tempo real
+            6. Adicionar notificação visual de novas mensagens (badge)
+        */}
+        <ControlBtn
+            isActive={false}
+            onClick={() => {}}
+            onIcon={MessageSquare}
             offIcon={MessageSquare}
             label="Chat"
             activeColor="bg-slate-700"

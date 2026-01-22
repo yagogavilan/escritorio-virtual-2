@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend 
+import React, { useState, useEffect } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend
 } from 'recharts';
-import { 
-  Users, Building, Activity, DollarSign, Settings, LogOut, Plus, Search, 
-  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download 
+import {
+  Users, Building, Activity, DollarSign, Settings, LogOut, Plus, Search,
+  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle
 } from 'lucide-react';
+import { officeApi, usersApi } from '../api/client';
+import { Office, User } from '../types';
 
 const dataActivity = [
   { name: 'Mon', hours: 400, meetings: 24 },
@@ -31,31 +33,148 @@ interface AdminDashboardProps {
 
 type Tab = 'dashboard' | 'offices' | 'users' | 'billing';
 
+interface OfficeData {
+  id: string;
+  name: string;
+  users: number;
+  status: string;
+  plan: string;
+  logo?: string;
+  primaryColor?: string;
+  workingHoursEnabled?: boolean;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+}
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnterDemo }) => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
-  // Placeholder Data
-  const offices = [
-    { id: 1, name: 'Nexus HQ Demo', users: 12, status: 'Active', plan: 'Enterprise', location: 'New York, USA' },
-    { id: 2, name: 'Acme Corp', users: 45, status: 'Active', plan: 'Business', location: 'London, UK' },
-    { id: 3, name: 'Stark Industries', users: 120, status: 'Active', plan: 'Enterprise', location: 'California, USA' },
-    { id: 4, name: 'Wayne Enterprises', users: 80, status: 'Inactive', plan: 'Basic', location: 'Gotham, USA' },
-    { id: 5, name: 'Cyberdyne Systems', users: 200, status: 'Active', plan: 'Enterprise', location: 'San Francisco, USA' },
-  ];
+  // Real Data States
+  const [offices, setOffices] = useState<OfficeData[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const users = [
-    { id: 1, name: 'Yago Gavilan', role: 'Master Admin', email: 'yago@nexus.com', status: 'Active' },
-    { id: 2, name: 'Sarah Connor', role: 'Office Admin', email: 'sarah@tech.com', status: 'Active' },
-    { id: 3, name: 'John Doe', role: 'User', email: 'john@sales.com', status: 'Away' },
-    { id: 4, name: 'Alice Smith', role: 'User', email: 'alice@hr.com', status: 'Offline' },
-    { id: 5, name: 'Bob Martin', role: 'User', email: 'bob@tech.com', status: 'Active' },
-  ];
+  // Modal States
+  const [showCreateOfficeModal, setShowCreateOfficeModal] = useState(false);
+  const [showEditOfficeModal, setShowEditOfficeModal] = useState(false);
+  const [editingOffice, setEditingOffice] = useState<OfficeData | null>(null);
+  const [hoveredOfficeId, setHoveredOfficeId] = useState<string | null>(null);
+  const [officeUsers, setOfficeUsers] = useState<Record<string, User[]>>({});
 
   const invoices = [
     { id: '#INV-2023-001', date: 'Oct 1, 2023', amount: '$2,400.00', status: 'Paid' },
     { id: '#INV-2023-002', date: 'Nov 1, 2023', amount: '$2,400.00', status: 'Paid' },
     { id: '#INV-2023-003', date: 'Dec 1, 2023', amount: '$2,650.00', status: 'Pending' },
   ];
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load offices
+      const officesResponse = await officeApi.getAll();
+      const officesData = officesResponse.data.map((office: any) => ({
+        id: office.id,
+        name: office.name,
+        users: 0, // Will be updated when loading users
+        status: 'Active',
+        plan: 'Enterprise',
+        logo: office.logo,
+        primaryColor: office.primaryColor,
+        workingHoursEnabled: office.workingHoursEnabled,
+        workingHoursStart: office.workingHoursStart,
+        workingHoursEnd: office.workingHoursEnd,
+      }));
+
+      // Load users
+      const usersResponse = await usersApi.getAll();
+      const usersData = usersResponse.data;
+
+      // Count users per office
+      const userCounts: Record<string, number> = {};
+      usersData.forEach((user: User) => {
+        if (user.officeId) {
+          userCounts[user.officeId] = (userCounts[user.officeId] || 0) + 1;
+        }
+      });
+
+      // Update offices with user counts
+      const officesWithCounts = officesData.map((office: OfficeData) => ({
+        ...office,
+        users: userCounts[office.id] || 0,
+      }));
+
+      setOffices(officesWithCounts);
+      setUsers(usersData);
+    } catch (err: any) {
+      console.error('Error loading data:', err);
+      setError(err.response?.data?.message || 'Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOfficeUsers = async (officeId: string) => {
+    if (officeUsers[officeId]) return; // Already loaded
+
+    try {
+      const response = await officeApi.getUsers(officeId);
+      setOfficeUsers(prev => ({ ...prev, [officeId]: response.data }));
+    } catch (err) {
+      console.error('Error loading office users:', err);
+    }
+  };
+
+  const handleCreateOffice = async (data: {
+    name: string;
+    logo?: string;
+    primaryColor?: string;
+    workingHoursEnabled?: boolean;
+    workingHoursStart?: string;
+    workingHoursEnd?: string;
+  }) => {
+    try {
+      await officeApi.create(data);
+      await loadData(); // Reload data
+      setShowCreateOfficeModal(false);
+    } catch (err: any) {
+      console.error('Error creating office:', err);
+      alert(err.response?.data?.message || 'Erro ao criar office');
+    }
+  };
+
+  const handleEditOffice = async (data: {
+    name: string;
+    logo?: string;
+    primaryColor?: string;
+    workingHoursEnabled?: boolean;
+    workingHoursStart?: string;
+    workingHoursEnd?: string;
+  }) => {
+    if (!editingOffice) return;
+
+    try {
+      await officeApi.updateOffice(editingOffice.id, data);
+      await loadData(); // Reload data
+      setShowEditOfficeModal(false);
+      setEditingOffice(null);
+    } catch (err: any) {
+      console.error('Error updating office:', err);
+      alert(err.response?.data?.message || 'Erro ao atualizar office');
+    }
+  };
+
+  const openEditModal = (office: OfficeData) => {
+    setEditingOffice(office);
+    setShowEditOfficeModal(true);
+  };
 
   const renderSidebarItem = (id: Tab, label: string, Icon: React.ElementType) => (
     <button 
@@ -177,51 +296,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
           {/* OFFICES VIEW */}
           {activeTab === 'offices' && (
              <div className="space-y-6 animate-fade-in">
-                <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="relative max-w-md w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                        <input type="text" placeholder="Search offices..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-slate-700 focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-semibold transition-colors shadow-lg shadow-indigo-200">
-                        <Plus size={18} /> Add Office
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {offices.map(office => (
-                        <div key={office.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    <Building size={28} />
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${office.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                    {office.status === 'Active' && <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>}
-                                    {office.status}
-                                </span>
-                            </div>
-                            <h4 className="text-xl font-bold text-slate-800 mb-1">{office.name}</h4>
-                            <p className="text-slate-500 text-sm mb-6 flex items-center gap-2">
-                                {office.location}
-                            </p>
-                            
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <p className="text-xs text-slate-500 font-medium uppercase">Users</p>
-                                    <p className="text-lg font-bold text-slate-800">{office.users}</p>
-                                </div>
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <p className="text-xs text-slate-500 font-medium uppercase">Plan</p>
-                                    <p className="text-lg font-bold text-slate-800">{office.plan}</p>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Office</button>
-                                <button className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-lg"><Settings size={18}/></button>
-                            </div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                  </div>
+                ) : error ? (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-700">
+                    <AlertCircle size={20} />
+                    <span>{error}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                        <div className="relative max-w-md w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                            <input type="text" placeholder="Search offices..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-slate-700 focus:ring-2 focus:ring-indigo-500" />
                         </div>
-                    ))}
-                </div>
+                        <button
+                          onClick={() => setShowCreateOfficeModal(true)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-semibold transition-colors shadow-lg shadow-indigo-200">
+                            <Plus size={18} /> Add Office
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {offices.map(office => (
+                            <div key={office.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                        <Building size={28} />
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${office.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        {office.status === 'Active' && <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>}
+                                        {office.status}
+                                    </span>
+                                </div>
+                                <h4 className="text-xl font-bold text-slate-800 mb-1">{office.name}</h4>
+                                <p className="text-slate-500 text-sm mb-6 flex items-center gap-2">
+                                    Office ID: {office.id}
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div
+                                      className="bg-slate-50 p-3 rounded-xl relative cursor-pointer hover:bg-slate-100 transition-colors"
+                                      onMouseEnter={() => {
+                                        setHoveredOfficeId(office.id);
+                                        loadOfficeUsers(office.id);
+                                      }}
+                                      onMouseLeave={() => setHoveredOfficeId(null)}
+                                    >
+                                        <p className="text-xs text-slate-500 font-medium uppercase">Users</p>
+                                        <p className="text-lg font-bold text-slate-800">{office.users}</p>
+
+                                        {hoveredOfficeId === office.id && officeUsers[office.id] && (
+                                          <div className="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
+                                            <h5 className="font-bold text-slate-800 mb-3 text-sm">Users in {office.name}</h5>
+                                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                              {officeUsers[office.id].map((user: User) => (
+                                                <div key={user.id} className="flex items-center gap-2 text-xs">
+                                                  <div className={`w-2 h-2 rounded-full ${user.status === 'online' ? 'bg-green-500' : user.status === 'busy' ? 'bg-red-500' : user.status === 'away' ? 'bg-yellow-500' : 'bg-slate-300'}`}></div>
+                                                  <span className="font-medium text-slate-700">{user.name}</span>
+                                                  <span className="text-slate-400">({user.role})</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-xl">
+                                        <p className="text-xs text-slate-500 font-medium uppercase">Plan</p>
+                                        <p className="text-lg font-bold text-slate-800">{office.plan}</p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                                    <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Office</button>
+                                    <button
+                                      onClick={() => openEditModal(office)}
+                                      className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-lg">
+                                      <Settings size={18}/>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                  </>
+                )}
              </div>
           )}
 
@@ -362,6 +522,365 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
 
         </div>
       </main>
+
+      {/* Create Office Modal */}
+      {showCreateOfficeModal && (
+        <CreateOfficeModal
+          onClose={() => setShowCreateOfficeModal(false)}
+          onCreate={handleCreateOffice}
+        />
+      )}
+
+      {/* Edit Office Modal */}
+      {showEditOfficeModal && editingOffice && (
+        <EditOfficeModal
+          office={editingOffice}
+          onClose={() => {
+            setShowEditOfficeModal(false);
+            setEditingOffice(null);
+          }}
+          onSave={handleEditOffice}
+        />
+      )}
+    </div>
+  );
+};
+
+// Create Office Modal Component
+interface CreateOfficeModalProps {
+  onClose: () => void;
+  onCreate: (data: {
+    name: string;
+    logo?: string;
+    primaryColor?: string;
+    workingHoursEnabled?: boolean;
+    workingHoursStart?: string;
+    workingHoursEnd?: string;
+  }) => void;
+}
+
+const CreateOfficeModal: React.FC<CreateOfficeModalProps> = ({ onClose, onCreate }) => {
+  const [name, setName] = useState('');
+  const [logo, setLogo] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('#6366f1');
+  const [workingHoursEnabled, setWorkingHoursEnabled] = useState(false);
+  const [workingHoursStart, setWorkingHoursStart] = useState('09:00');
+  const [workingHoursEnd, setWorkingHoursEnd] = useState('18:00');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        logo: logo.trim() || undefined,
+        primaryColor: primaryColor || undefined,
+        workingHoursEnabled,
+        workingHoursStart: workingHoursEnabled ? workingHoursStart : undefined,
+        workingHoursEnd: workingHoursEnabled ? workingHoursEnd : undefined,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+          <h3 className="text-xl font-bold text-slate-800">Criar Novo Office</h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Nome do Office <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Acme Corp"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Logo URL (opcional)
+            </label>
+            <input
+              type="url"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+              placeholder="https://exemplo.com/logo.png"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Cor Primária (opcional)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-16 h-10 rounded-lg cursor-pointer"
+              />
+              <input
+                type="text"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#6366f1"
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={workingHoursEnabled}
+                onChange={(e) => setWorkingHoursEnabled(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-semibold text-slate-700">
+                Ativar Horário de Trabalho
+              </span>
+            </label>
+          </div>
+
+          {workingHoursEnabled && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Início
+                </label>
+                <input
+                  type="time"
+                  value={workingHoursStart}
+                  onChange={(e) => setWorkingHoursStart(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Fim
+                </label>
+                <input
+                  type="time"
+                  value={workingHoursEnd}
+                  onChange={(e) => setWorkingHoursEnd(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Criando...' : 'Criar Office'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Edit Office Modal Component
+interface EditOfficeModalProps {
+  office: OfficeData;
+  onClose: () => void;
+  onSave: (data: {
+    name: string;
+    logo?: string;
+    primaryColor?: string;
+    workingHoursEnabled?: boolean;
+    workingHoursStart?: string;
+    workingHoursEnd?: string;
+  }) => void;
+}
+
+const EditOfficeModal: React.FC<EditOfficeModalProps> = ({ office, onClose, onSave }) => {
+  const [name, setName] = useState(office.name);
+  const [logo, setLogo] = useState(office.logo || '');
+  const [primaryColor, setPrimaryColor] = useState(office.primaryColor || '#6366f1');
+  const [workingHoursEnabled, setWorkingHoursEnabled] = useState(office.workingHoursEnabled || false);
+  const [workingHoursStart, setWorkingHoursStart] = useState(office.workingHoursStart || '09:00');
+  const [workingHoursEnd, setWorkingHoursEnd] = useState(office.workingHoursEnd || '18:00');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        logo: logo.trim() || undefined,
+        primaryColor: primaryColor || undefined,
+        workingHoursEnabled,
+        workingHoursStart: workingHoursEnabled ? workingHoursStart : undefined,
+        workingHoursEnd: workingHoursEnabled ? workingHoursEnd : undefined,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+          <h3 className="text-xl font-bold text-slate-800">Editar Office</h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Nome do Office <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Acme Corp"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Logo URL (opcional)
+            </label>
+            <input
+              type="url"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+              placeholder="https://exemplo.com/logo.png"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Cor Primária (opcional)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-16 h-10 rounded-lg cursor-pointer"
+              />
+              <input
+                type="text"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#6366f1"
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={workingHoursEnabled}
+                onChange={(e) => setWorkingHoursEnabled(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-semibold text-slate-700">
+                Ativar Horário de Trabalho
+              </span>
+            </label>
+          </div>
+
+          {workingHoursEnabled && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Início
+                </label>
+                <input
+                  type="time"
+                  value={workingHoursStart}
+                  onChange={(e) => setWorkingHoursStart(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Fim
+                </label>
+                <input
+                  type="time"
+                  value={workingHoursEnd}
+                  onChange={(e) => setWorkingHoursEnd(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

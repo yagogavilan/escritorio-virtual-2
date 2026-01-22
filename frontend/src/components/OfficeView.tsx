@@ -13,7 +13,7 @@ import {
   Layers, UserCog, Copy, RefreshCw
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
-import { uploadApi, tasksApi, sectorsApi } from '../api/client';
+import { uploadApi, tasksApi, sectorsApi, authApi, channelsApi } from '../api/client';
 
 interface OfficeViewProps {
   office: Office;
@@ -74,6 +74,11 @@ const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string, color: string,
 };
 
 type SidebarMode = 'hidden' | 'chat' | 'notifications' | 'tasks';
+
+// NOVO: Helper function para gerar avatar com fallback para avatar padrão
+const getUserAvatar = (user: User): string => {
+    return user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff`;
+};
 
 export const OfficeView: React.FC<OfficeViewProps> = ({ 
   office, currentUser, onLogout, onStartCall, onEnterRoom, onUpdateStatus, onKnock, onCreateRoom, onDeleteRoom,
@@ -276,11 +281,28 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       setMentionQuery(null);
   };
 
-  const handleCreateGroup = (name: string, selectedUsers: string[]) => {
-      const newChannel: ChatChannel = { id: `group-${Date.now()}`, type: 'group', name: name, participants: [currentUser.id, ...selectedUsers], messages: [], unreadCount: 0, lastMessageAt: new Date() };
-      setChannels(prev => [...prev, newChannel]);
-      setActiveChannelId(newChannel.id);
-      setShowCreateGroupModal(false);
+  const handleCreateGroup = async (name: string, selectedUsers: string[]) => {
+      try {
+          // Call backend API to create group channel
+          const response = await channelsApi.create('group', selectedUsers, name);
+          const newChannel = response.data;
+
+          // Add to local state
+          setChannels(prev => [...prev, {
+              id: newChannel.id,
+              type: 'group',
+              name: newChannel.name,
+              participants: newChannel.participants,
+              messages: [],
+              unreadCount: 0,
+              lastMessageAt: new Date(newChannel.createdAt)
+          }]);
+          setActiveChannelId(newChannel.id);
+          setShowCreateGroupModal(false);
+      } catch (error) {
+          console.error('Error creating group channel:', error);
+          alert('Erro ao criar espaço. Tente novamente.');
+      }
   };
 
   const handleSendAnnouncement = (data: Partial<Announcement>) => {
@@ -523,7 +545,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative group cursor-pointer hover:border-indigo-200 transition-colors">
               <div className="flex items-center gap-3" onClick={() => setShowStatusMenu(!showStatusMenu)}>
                   <div className="relative shrink-0">
-                    <img src={currentUser.avatar} className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm" alt="Me" />
+                    <img src={getUserAvatar(currentUser)} className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm" alt="Me" />
                     <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${STATUS_CONFIG[currentUser.status].color}`}></span>
                   </div>
                   <div className="overflow-hidden hidden md:block flex-1 min-w-0">
@@ -604,7 +626,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                      <div className="flex items-center gap-2 mb-8"><span className={`w-2 h-2 rounded-full ${room.participants.length > 0 ? 'bg-green-500' : 'bg-slate-300'}`}></span><p className="text-sm text-slate-500 font-medium">{room.type === 'fixed' ? 'Espaço Aberto' : 'Escritório Privado'}</p></div>
                                      <div className="flex items-center justify-between">
                                         <div className="flex -space-x-3 h-10">
-                                            {room.participants.slice(0, 5).map(pid => { const p = office.users.find(u => u.id === pid); if (!p) return null; return <img key={pid} src={p.avatar} alt={p.name} className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" title={p.name} /> })}
+                                            {room.participants.slice(0, 5).map(pid => { const p = office.users.find(u => u.id === pid); if (!p) return null; return <img key={pid} src={getUserAvatar(p)} alt={p.name} className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" title={p.name} /> })}
                                             {room.participants.length === 0 && <span className="text-sm text-slate-400 italic py-2">Vazia</span>}
                                         </div>
                                         <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="px-6 py-2.5 rounded-xl text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" style={{ backgroundColor: room.color || '#0f172a' }}>Entrar</button>
@@ -740,7 +762,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                         if (!otherUser) return null;
                                         return (
                                             <button key={c.id} onClick={() => setActiveChannelId(c.id)} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left group ${activeChannelId === c.id ? 'bg-indigo-50' : 'hover:bg-slate-100'}`}>
-                                                <div className="relative"><img src={otherUser.avatar} className="w-8 h-8 rounded-full object-cover" /><span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[otherUser.status].color}`}></span></div>
+                                                <div className="relative"><img src={getUserAvatar(otherUser)} className="w-8 h-8 rounded-full object-cover" /><span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[otherUser.status].color}`}></span></div>
                                                 <div className="flex-1 min-w-0"><div className="flex justify-between items-baseline"><p className={`font-medium text-sm truncate ${activeChannelId === c.id ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>{otherUser.name}</p>{c.lastMessageAt && <span className="text-[10px] text-slate-400">{c.lastMessageAt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}</div><p className="text-xs text-slate-500 truncate">{c.messages[c.messages.length - 1]?.text || 'Inicie a conversa...'}</p></div>
                                             </button>
                                         )
@@ -760,7 +782,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                         return (
                                             <div key={msg.id} className={`flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                                 <div className={`flex max-w-[85%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                    {!isMe && showHeader ? (<img src={sender?.avatar} className="w-8 h-8 rounded-full object-cover mt-1" />) : (!isMe ? <div className="w-8" /> : null)}
+                                                    {!isMe && showHeader ? (<img src={sender ? getUserAvatar(sender) : getUserAvatar({ name: "Unknown", avatar: "" } as User)} className="w-8 h-8 rounded-full object-cover mt-1" />) : (!isMe ? <div className="w-8" /> : null)}
                                                     <div className="flex flex-col gap-1">
                                                         {!isMe && showHeader && (<span className="text-xs font-bold text-slate-600 ml-1">{sender?.name}</span>)}
                                                         <div className={`group relative px-4 py-2 text-sm shadow-sm transition-all ${isMe ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none' : 'bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none'}`}>
@@ -780,7 +802,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                         <div className="absolute bottom-full left-4 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-20">
                                             <div className="p-2 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500">Mencionar...</div>
                                             {office.users.filter(u => u.name.toLowerCase().includes(mentionQuery)).slice(0, 5).map(u => (
-                                                <button key={u.id} onClick={() => insertMention(u)} className="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center gap-2 text-sm"><img src={u.avatar} className="w-6 h-6 rounded-full" /><span className="text-slate-700 font-medium">{u.name}</span></button>
+                                                <button key={u.id} onClick={() => insertMention(u)} className="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center gap-2 text-sm"><img src={getUserAvatar(u)} className="w-6 h-6 rounded-full" /><span className="text-slate-700 font-medium">{u.name}</span></button>
                                             ))}
                                         </div>
                                     )}
@@ -895,7 +917,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                      <td className="px-6 py-4">
                                                          {assignee ? (
                                                              <div className="flex items-center gap-2">
-                                                                 <img src={assignee.avatar} className="w-6 h-6 rounded-full" />
+                                                                 <img src={getUserAvatar(assignee)} className="w-6 h-6 rounded-full" />
                                                                  <span className="text-sm text-slate-700 font-medium">{assignee.name}</span>
                                                              </div>
                                                          ) : <span className="text-slate-400 text-xs">Não atribuído</span>}
@@ -944,7 +966,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                              <div className="flex items-center gap-2">
                                                                  {assignee ? (
                                                                      <>
-                                                                     <img src={assignee.avatar} className="w-6 h-6 rounded-full border border-slate-100" title={assignee.name} />
+                                                                     <img src={getUserAvatar(assignee)} className="w-6 h-6 rounded-full border border-slate-100" title={assignee.name} />
                                                                      <span className="text-xs text-slate-500 font-medium truncate max-w-[80px]">{assignee.name.split(' ')[0]}</span>
                                                                      </>
                                                                  ) : <span className="text-xs text-slate-300 italic">Sem dono</span>}
@@ -1041,7 +1063,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 <div className="flex-1 overflow-y-auto space-y-2">
                     {office.users.filter(u => u.id !== currentUser.id).map(u => (
                          <button key={u.id} onClick={() => handleOpenChatWithUser(u)} className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                             <img src={u.avatar} className="w-10 h-10 rounded-full" />
+                             <img src={getUserAvatar(u)} className="w-10 h-10 rounded-full" />
                              <div>
                                  <p className="font-semibold text-slate-800 text-sm">{u.name}</p>
                                  <p className="text-xs text-slate-500">{u.email}</p>
@@ -1297,7 +1319,7 @@ const SettingsModal: React.FC<{
                                         return (
                                             <div key={u.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md transition-all group">
                                                 <div className="flex items-center gap-4">
-                                                    <img src={u.avatar} className="w-12 h-12 rounded-full object-cover border border-slate-100" />
+                                                    <img src={getUserAvatar(u)} className="w-12 h-12 rounded-full object-cover border border-slate-100" />
                                                     <div>
                                                         <p className="font-bold text-slate-800 text-sm">{u.name}</p>
                                                         <p className="text-xs text-slate-500 font-medium">{u.email}</p>
@@ -1461,6 +1483,13 @@ const EditProfileModal: React.FC<{
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // NOVO: Estados para alteração de senha
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [passwordError, setPasswordError] = useState('');
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -1490,17 +1519,52 @@ const EditProfileModal: React.FC<{
         }
     };
 
+    // NOVO: Função para alterar senha
+    const handleChangePassword = async () => {
+        setPasswordError('');
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            setPasswordError('Todos os campos de senha são obrigatórios');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError('Nova senha e confirmação não coincidem');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            setPasswordError('Nova senha deve ter no mínimo 6 caracteres');
+            return;
+        }
+
+        setChangingPassword(true);
+        try {
+            await authApi.changePassword(currentPassword, newPassword);
+            alert('Senha alterada com sucesso!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err: any) {
+            console.error('Change password failed:', err);
+            setPasswordError(err.response?.data?.message || 'Erro ao alterar senha. Verifique a senha atual.');
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onUpdate({ ...user, name, avatar });
         onClose();
     };
 
+    // MELHORIA: Fallback para avatar padrão se não houver foto
     const displayAvatar = previewUrl || avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff`;
 
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h3 className="text-xl font-bold text-slate-800 mb-4">Editar Perfil</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="flex flex-col items-center mb-4">
@@ -1549,6 +1613,59 @@ const EditProfileModal: React.FC<{
                             onChange={e => setName(e.target.value)}
                         />
                     </div>
+
+                    {/* NOVO: Seção de alteração de senha */}
+                    <div className="border-t border-slate-200 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <Lock size={16} /> Alterar Senha
+                        </h4>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha Atual</label>
+                                <input
+                                    type="password"
+                                    className="w-full p-2 border rounded-lg text-slate-800"
+                                    value={currentPassword}
+                                    onChange={e => setCurrentPassword(e.target.value)}
+                                    placeholder="Digite sua senha atual"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nova Senha</label>
+                                <input
+                                    type="password"
+                                    className="w-full p-2 border rounded-lg text-slate-800"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="Mínimo 6 caracteres"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Confirmar Nova Senha</label>
+                                <input
+                                    type="password"
+                                    className="w-full p-2 border rounded-lg text-slate-800"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    placeholder="Digite novamente"
+                                />
+                            </div>
+                            {passwordError && (
+                                <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-2 rounded-lg">
+                                    {passwordError}
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleChangePassword}
+                                disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                                className="w-full py-2 bg-slate-600 text-white rounded-lg font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                {changingPassword ? 'Alterando...' : 'Alterar Senha'}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="flex gap-2 pt-2">
                         <button type="button" onClick={onClose} className="flex-1 py-2 border rounded-lg text-slate-600 font-bold hover:bg-slate-50">Cancelar</button>
                         <button type="submit" disabled={uploading} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50">Salvar</button>
@@ -1589,7 +1706,7 @@ const SidebarButton: React.FC<{ active: boolean; icon: React.ElementType; label:
 
 const UserCard: React.FC<{ user: User; sectorName?: string; roomName?: string; onStartCall: () => void; onKnock: () => void; onOpenChat: () => void; }> = ({ user, sectorName, roomName, onStartCall, onKnock, onOpenChat }) => (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col items-center shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group relative">
-        <div className="relative mb-3"><img src={user.avatar} alt={user.name} className="w-20 h-20 rounded-full object-cover border-4 border-slate-50 shadow-sm" /><span className={`absolute bottom-1 right-1 w-4 h-4 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span></div>
+        <div className="relative mb-3"><img src={getUserAvatar(user)} alt={user.name} className="w-20 h-20 rounded-full object-cover border-4 border-slate-50 shadow-sm" /><span className={`absolute bottom-1 right-1 w-4 h-4 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span></div>
         <h4 className="font-bold text-slate-800 text-lg text-center mb-1">{user.name}</h4>
         <p className="text-slate-500 text-xs font-medium uppercase tracking-wide mb-4 flex items-center gap-1">
             {user.role === 'visitor' && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">Visitante</span>}
@@ -1613,7 +1730,7 @@ const UserCard: React.FC<{ user: User; sectorName?: string; roomName?: string; o
 
 const UserListItem: React.FC<{ user: User; sectorName?: string; roomName?: string; onStartCall: () => void; onKnock: () => void; onOpenChat: () => void; }> = ({ user, sectorName, roomName, onStartCall, onKnock, onOpenChat }) => (
     <div className="bg-white rounded-xl border border-slate-200 p-3 flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
-        <div className="flex items-center gap-3"><div className="relative"><img src={user.avatar} className="w-10 h-10 rounded-full object-cover" /><span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span></div><div><h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">{user.name} {user.role === 'visitor' && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">Visitante</span>}</h4><p className="text-slate-500 text-xs">{user.jobTitle || sectorName} {roomName && `• Em: ${roomName}`}</p></div></div>
+        <div className="flex items-center gap-3"><div className="relative"><img src={getUserAvatar(user)} className="w-10 h-10 rounded-full object-cover" /><span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span></div><div><h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">{user.name} {user.role === 'visitor' && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">Visitante</span>}</h4><p className="text-slate-500 text-xs">{user.jobTitle || sectorName} {roomName && `• Em: ${roomName}`}</p></div></div>
         <div className="flex gap-1">
             <button onClick={onOpenChat} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><MessageSquare size={16}/></button>
             <button onClick={onKnock} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg"><Hand size={16}/></button>
@@ -1622,9 +1739,11 @@ const UserListItem: React.FC<{ user: User; sectorName?: string; roomName?: strin
     </div>
 );
 
-const CreateGroupModal: React.FC<{ users: User[]; onClose: () => void; onCreate: (name: string, userIds: string[]) => void; }> = ({ users, onClose, onCreate }) => { const [name, setName] = useState(''); const [selected, setSelected] = useState<string[]>([]); const toggleUser = (id: string) => { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Novo Espaço (Grupo)</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div><input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do grupo..." className="w-full px-3 py-2 border border-slate-300 rounded-xl mb-4" /><div className="flex-1 overflow-y-auto space-y-2 mb-4">{users.map(u => (<button key={u.id} onClick={() => toggleUser(u.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left border ${selected.includes(u.id) ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}><img src={u.avatar} className="w-8 h-8 rounded-full" /><span className="font-semibold text-sm text-slate-700 flex-1">{u.name}</span>{selected.includes(u.id) && <Check size={16} className="text-indigo-600" />}</button>))}</div><button onClick={() => onCreate(name, selected)} disabled={!name || selected.length === 0} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Criar Espaço</button></div></div>) }
-const AddPeopleModal: React.FC<{ users: User[]; onClose: () => void; onAdd: (userIds: string[]) => void; }> = ({ users, onClose, onAdd }) => { const [selected, setSelected] = useState<string[]>([]); const toggleUser = (id: string) => { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Adicionar Pessoas</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div>{users.length === 0 ? <p className="text-slate-500 text-center py-4">Todos já estão no grupo.</p> : (<div className="flex-1 overflow-y-auto space-y-2 mb-4">{users.map(u => (<button key={u.id} onClick={() => toggleUser(u.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left border ${selected.includes(u.id) ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}><img src={u.avatar} className="w-8 h-8 rounded-full" /><span className="font-semibold text-sm text-slate-700 flex-1">{u.name}</span>{selected.includes(u.id) && <Check size={16} className="text-indigo-600" />}</button>))}</div>)}<button onClick={() => onAdd(selected)} disabled={selected.length === 0} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Adicionar</button></div></div>) }
+const CreateGroupModal: React.FC<{ users: User[]; onClose: () => void; onCreate: (name: string, userIds: string[]) => void; }> = ({ users, onClose, onCreate }) => { const [name, setName] = useState(''); const [selected, setSelected] = useState<string[]>([]); const toggleUser = (id: string) => { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Novo Espaço (Grupo)</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div><input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do grupo..." className="w-full px-3 py-2 border border-slate-300 rounded-xl mb-4" /><div className="flex-1 overflow-y-auto space-y-2 mb-4">{users.map(u => (<button key={u.id} onClick={() => toggleUser(u.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left border ${selected.includes(u.id) ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}><img src={getUserAvatar(u)} className="w-8 h-8 rounded-full" /><span className="font-semibold text-sm text-slate-700 flex-1">{u.name}</span>{selected.includes(u.id) && <Check size={16} className="text-indigo-600" />}</button>))}</div><button onClick={() => onCreate(name, selected)} disabled={!name || selected.length === 0} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Criar Espaço</button></div></div>) }
+const AddPeopleModal: React.FC<{ users: User[]; onClose: () => void; onAdd: (userIds: string[]) => void; }> = ({ users, onClose, onAdd }) => { const [selected, setSelected] = useState<string[]>([]); const toggleUser = (id: string) => { setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }; return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800">Adicionar Pessoas</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div>{users.length === 0 ? <p className="text-slate-500 text-center py-4">Todos já estão no grupo.</p> : (<div className="flex-1 overflow-y-auto space-y-2 mb-4">{users.map(u => (<button key={u.id} onClick={() => toggleUser(u.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left border ${selected.includes(u.id) ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}><img src={getUserAvatar(u)} className="w-8 h-8 rounded-full" /><span className="font-semibold text-sm text-slate-700 flex-1">{u.name}</span>{selected.includes(u.id) && <Check size={16} className="text-indigo-600" />}</button>))}</div>)}<button onClick={() => onAdd(selected)} disabled={selected.length === 0} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Adicionar</button></div></div>) }
 const ComposeAnnouncementModal: React.FC<{ users: User[]; onClose: () => void; onSend: (data: Partial<Announcement>) => void; }> = ({ users, onClose, onSend }) => { const [title, setTitle] = useState(''); const [message, setMessage] = useState(''); return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"><div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Megaphone className="text-amber-500" /> Novo Comunicado</h3><button onClick={onClose}><X size={20} className="text-slate-400" /></button></div><div className="space-y-4"><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Título do anúncio..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" /><textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Escreva sua mensagem aqui..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none" /><button onClick={() => onSend({ title, message })} disabled={!title || !message} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50">Publicar</button></div></div></div>) }
 const AnnouncementOverlay: React.FC<{ announcement: Announcement; onClose: () => void; }> = ({ announcement, onClose }) => { return (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in-95 duration-300"><div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative"><div className="h-32 bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center relative"><Megaphone size={64} className="text-white/20 absolute" /><button onClick={onClose} className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-sm transition-colors"><X size={20}/></button></div><div className="p-8 text-center"><h2 className="text-2xl font-bold text-slate-800 mb-4">{announcement.title}</h2><p className="text-slate-600 leading-relaxed text-lg mb-8">{announcement.message}</p><button onClick={onClose} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Entendido</button></div></div></div>) }
-const TaskModal: React.FC<{ task: Task | null, users: User[], currentUser: User, onClose: () => void, onSave: (t: Partial<Task>) => void, onComment: (id: string, text: string, mentions?: string[]) => void, onDelete?: (id: string) => void }> = ({ task, users, currentUser, onClose, onSave, onComment, onDelete }) => { const [title, setTitle] = useState(task?.title || ''); const [description, setDescription] = useState(task?.description || ''); const [status, setStatus] = useState<TaskStatus>(task?.status || 'todo'); const [priority, setPriority] = useState<TaskPriority>(task?.priority || 'medium'); const [assigneeId, setAssigneeId] = useState(task?.assigneeId || currentUser.id); const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''); const [tagsInput, setTagsInput] = useState(task?.tags.join(', ') || ''); const [commentText, setCommentText] = useState(''); const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details'); const [attachments, setAttachments] = useState<TaskAttachment[]>(task?.attachments || []); const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) { const newFiles = Array.from(e.target.files).map(f => ({ id: `file-${Date.now()}-${Math.random()}`, name: f.name, url: URL.createObjectURL(f), type: f.type, size: f.size })); setAttachments([...attachments, ...newFiles]); } }; const handleSave = () => { onSave({ title, description, status, priority, assigneeId, dueDate: dueDate ? new Date(dueDate) : undefined, tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean), attachments }); }; const handleSendComment = () => { if (commentText.trim() && task) { // Detectar menções no formato @NomeDoUsuário const mentionMatches = commentText.match(/@(\S+)/g); const mentionedUserIds: string[] = []; if (mentionMatches) { mentionMatches.forEach(match => { // Remove o @ do início const mentionedName = match.substring(1); // Procurar o usuário por nome (case-insensitive) const user = users.find(u => u.name.toLowerCase().includes(mentionedName.toLowerCase())); if (user) { mentionedUserIds.push(user.id); } }); } onComment(task.id, commentText, mentionedUserIds); setCommentText(''); } }; const isOverdue = task?.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'; return (<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-fade-in-up flex flex-col h-[85vh]"><div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0"><div className="flex items-center gap-3"><div className="bg-blue-600 text-white p-2 rounded-lg"><ClipboardList size={20} /></div><div><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">{task ? 'Detalhes da Tarefa' : 'Nova Tarefa'} {isOverdue && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full border border-red-200 flex items-center gap-1"><AlertCircle size={10}/> Atrasado</span>}</h3>{task && <p className="text-xs text-slate-500">Criado em {task.createdAt.toLocaleDateString()} por {users.find(u => u.id === task.creatorId)?.name || 'Desconhecido'}</p>}</div></div><button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button></div><div className="flex border-b border-slate-200 px-6 shrink-0 bg-white gap-6"><button onClick={() => setActiveTab('details')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><FileText size={16}/> Detalhes</button>{task && (<button onClick={() => setActiveTab('comments')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'comments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><MessageSquare size={16}/> Comentários <span className={`px-1.5 rounded-full text-xs ${activeTab === 'comments' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{task.comments.length}</span></button>)}{task && (<button onClick={() => setActiveTab('history')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><History size={16}/> Histórico</button>)}</div><div className="flex-1 overflow-y-auto p-8 bg-white">{activeTab === 'details' && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-8"><div className="lg:col-span-2 space-y-6"><div><label className="block text-sm font-bold text-slate-700 mb-1">Título</label><input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all font-bold text-lg text-slate-800 placeholder-slate-400" value={title} onChange={e => setTitle(e.target.value)} placeholder="O que precisa ser feito?" /></div><div><label className="block text-sm font-bold text-slate-700 mb-1">Descrição</label><textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all min-h-[150px] text-slate-700 placeholder-slate-400" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Anexos</label><div className="flex flex-wrap gap-3">{attachments.map(att => (<div key={att.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-sm text-slate-700"><FileText size={16} className="text-slate-400" /><a href={att.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[150px] font-medium">{att.name}</a><button onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-slate-400 hover:text-red-500 transition-colors"><X size={14}/></button></div>))}<label className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 border-dashed px-4 py-2 rounded-lg text-sm text-slate-600 font-medium cursor-pointer transition-all hover:border-slate-400"><Upload size={16} /> Adicionar Arquivo<input type="file" multiple className="hidden" onChange={handleFileUpload} /></label></div></div></div><div className="space-y-6"><div className="bg-slate-50 p-5 rounded-2xl space-y-5 border border-slate-200 shadow-sm"><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>{Object.entries(TASK_STATUS_CONFIG).map(([key, config]) => (<option key={key} value={key}>{config.label}</option>))}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prioridade</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Responsável</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prazo (Data e Hora)</label><input type="datetime-local" className={`w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none ${isOverdue ? 'border-red-300 text-red-600 bg-red-50' : ''}`} value={dueDate} onChange={e => setDueDate(e.target.value)} /></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tags (separar por vírgula)</label><input type="text" className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="dev, marketing..." value={tagsInput} onChange={e => setTagsInput(e.target.value)} /></div></div></div></div>)}{activeTab === 'comments' && task && (<div className="flex flex-col h-full"><div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">{task.comments.length === 0 && <div className="flex flex-col items-center justify-center h-40 text-slate-400"><MessageSquare size={32} className="mb-2 opacity-50"/><p>Nenhum comentário ainda.</p></div>}{task.comments.map(c => { const user = users.find(u => u.id === c.userId); return (<div key={c.id} className="flex gap-4 group"><img src={user?.avatar} className="w-10 h-10 rounded-full mt-1 border border-slate-200" /><div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-200 flex-1 hover:border-slate-300 transition-colors shadow-sm"><div className="flex justify-between items-baseline mb-2"><span className="font-bold text-slate-800 text-sm">{user?.name}</span><span className="text-xs text-slate-400">{c.createdAt.toLocaleString()}</span></div><p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.text}</p></div></div>) })}</div><div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-auto shadow-inner"><textarea className="w-full bg-transparent text-sm focus:outline-none min-h-[80px] placeholder-slate-400 text-slate-700 resize-none" placeholder="Escreva um comentário... (Use @ para mencionar)" value={commentText} onChange={e => setCommentText(e.target.value)}></textarea><div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200"><span className="text-xs text-slate-400 font-medium">Mencione @Nome para notificar</span><button onClick={handleSendComment} disabled={!commentText.trim()} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">Enviar</button></div></div></div>)}{activeTab === 'history' && task && (<div className="space-y-0">{task.history.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).map((h, i) => { const user = users.find(u => u.id === h.userId); return (<div key={h.id} className="flex gap-4 py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded-lg transition-colors"><div className="flex flex-col items-center"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200"><History size={14}/></div>{i !== task.history.length - 1 && <div className="w-px h-full bg-slate-200 my-1"></div>}</div><div className="text-sm pt-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800">{user?.name}</span><span className="text-xs text-slate-400">{h.timestamp.toLocaleString()}</span></div><p className="text-slate-600">{h.action}</p></div></div>) })}</div>)}</div><div className="p-6 border-t border-slate-100 flex justify-between gap-3 shrink-0 bg-slate-50 rounded-b-3xl"><div>{task && onDelete && (currentUser.role === 'admin' || currentUser.role === 'master') && (<button onClick={() => onDelete(task.id)} className="px-6 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center gap-2"><Trash2 size={18} /> Deletar</button>)}</div><div className="flex gap-3"><button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button><button onClick={handleSave} className="px-8 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2"><Check size={18} /> Salvar Tarefa</button></div></div></div></div>); };
+const TaskModal: React.FC<{ task: Task | null, users: User[], currentUser: User, onClose: () => void, onSave: (t: Partial<Task>) => void, onComment: (id: string, text: string, mentions?: string[]) => void, onDelete?: (id: string) => void }> = ({ task, users, currentUser, onClose, onSave, onComment, onDelete }) => { const [title, setTitle] = useState(task?.title || ''); const [description, setDescription] = useState(task?.description || ''); const [status, setStatus] = useState<TaskStatus>(task?.status || 'todo'); const [priority, setPriority] = useState<TaskPriority>(task?.priority || 'medium'); const [assigneeId, setAssigneeId] = useState(task?.assigneeId || currentUser.id); const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate.getTime() - (task.dueDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''); const [tagsInput, setTagsInput] = useState(task?.tags.join(', ') || ''); const [commentText, setCommentText] = useState(''); const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details'); const [attachments, setAttachments] = useState<TaskAttachment[]>(task?.attachments || []); const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) { const newFiles = Array.from(e.target.files).map(f => ({ id: `file-${Date.now()}-${Math.random()}`, name: f.name, url: URL.createObjectURL(f), type: f.type, size: f.size })); setAttachments([...attachments, ...newFiles]); } }; const handleSave = () => { onSave({ title, description, status, priority, assigneeId, dueDate: dueDate ? new Date(dueDate) : undefined, tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean), attachments }); }; const handleSendComment = () => { if (commentText.trim() && task) { // MELHORIA: Detectar menções no formato @NomeDoUsuário (agora suporta nomes compostos)
+        // Regex melhorado: captura tudo entre @ e um espaço/quebra de linha/fim da string
+        // Exemplos: "@João Silva" ou "@Maria" ou "@Pedro Santos 123" const mentionMatches = commentText.match(/@([^\s]+(?:\s+[^\s@]+)*?)(?=\s|$|@)/g); const mentionedUserIds: string[] = []; if (mentionMatches) { mentionMatches.forEach(match => { // Remove o @ do início const mentionedName = match.substring(1); // Procurar o usuário por nome (case-insensitive) const user = users.find(u => u.name.toLowerCase().includes(mentionedName.toLowerCase())); if (user) { mentionedUserIds.push(user.id); } }); } onComment(task.id, commentText, mentionedUserIds); setCommentText(''); } }; const isOverdue = task?.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'; return (<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-fade-in-up flex flex-col h-[85vh]"><div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0"><div className="flex items-center gap-3"><div className="bg-blue-600 text-white p-2 rounded-lg"><ClipboardList size={20} /></div><div><h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">{task ? 'Detalhes da Tarefa' : 'Nova Tarefa'} {isOverdue && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full border border-red-200 flex items-center gap-1"><AlertCircle size={10}/> Atrasado</span>}</h3>{task && <p className="text-xs text-slate-500">Criado em {task.createdAt.toLocaleDateString()} por {users.find(u => u.id === task.creatorId)?.name || 'Desconhecido'}</p>}</div></div><button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500"><X size={20} /></button></div><div className="flex border-b border-slate-200 px-6 shrink-0 bg-white gap-6"><button onClick={() => setActiveTab('details')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><FileText size={16}/> Detalhes</button>{task && (<button onClick={() => setActiveTab('comments')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'comments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><MessageSquare size={16}/> Comentários <span className={`px-1.5 rounded-full text-xs ${activeTab === 'comments' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{task.comments.length}</span></button>)}{task && (<button onClick={() => setActiveTab('history')} className={`py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><History size={16}/> Histórico</button>)}</div><div className="flex-1 overflow-y-auto p-8 bg-white">{activeTab === 'details' && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-8"><div className="lg:col-span-2 space-y-6"><div><label className="block text-sm font-bold text-slate-700 mb-1">Título</label><input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all font-bold text-lg text-slate-800 placeholder-slate-400" value={title} onChange={e => setTitle(e.target.value)} placeholder="O que precisa ser feito?" /></div><div><label className="block text-sm font-bold text-slate-700 mb-1">Descrição</label><textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none focus:bg-white transition-all min-h-[150px] text-slate-700 placeholder-slate-400" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes da tarefa..." /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Anexos</label><div className="flex flex-wrap gap-3">{attachments.map(att => (<div key={att.id} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-sm text-slate-700"><FileText size={16} className="text-slate-400" /><a href={att.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-[150px] font-medium">{att.name}</a><button onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-slate-400 hover:text-red-500 transition-colors"><X size={14}/></button></div>))}<label className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 border-dashed px-4 py-2 rounded-lg text-sm text-slate-600 font-medium cursor-pointer transition-all hover:border-slate-400"><Upload size={16} /> Adicionar Arquivo<input type="file" multiple className="hidden" onChange={handleFileUpload} /></label></div></div></div><div className="space-y-6"><div className="bg-slate-50 p-5 rounded-2xl space-y-5 border border-slate-200 shadow-sm"><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>{Object.entries(TASK_STATUS_CONFIG).map(([key, config]) => (<option key={key} value={key}>{config.label}</option>))}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prioridade</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Responsável</label><select className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Prazo (Data e Hora)</label><input type="datetime-local" className={`w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none ${isOverdue ? 'border-red-300 text-red-600 bg-red-50' : ''}`} value={dueDate} onChange={e => setDueDate(e.target.value)} /></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tags (separar por vírgula)</label><input type="text" className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="dev, marketing..." value={tagsInput} onChange={e => setTagsInput(e.target.value)} /></div></div></div></div>)}{activeTab === 'comments' && task && (<div className="flex flex-col h-full"><div className="flex-1 space-y-4 overflow-y-auto pr-2 mb-4">{task.comments.length === 0 && <div className="flex flex-col items-center justify-center h-40 text-slate-400"><MessageSquare size={32} className="mb-2 opacity-50"/><p>Nenhum comentário ainda.</p></div>}{task.comments.map(c => { const user = users.find(u => u.id === c.userId); return (<div key={c.id} className="flex gap-4 group"><img src={user ? getUserAvatar(user) : getUserAvatar({ name: "Unknown", avatar: "" } as User)} className="w-10 h-10 rounded-full mt-1 border border-slate-200" /><div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-200 flex-1 hover:border-slate-300 transition-colors shadow-sm"><div className="flex justify-between items-baseline mb-2"><span className="font-bold text-slate-800 text-sm">{user?.name}</span><span className="text-xs text-slate-400">{c.createdAt.toLocaleString()}</span></div><p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.text}</p></div></div>) })}</div><div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-auto shadow-inner"><textarea className="w-full bg-transparent text-sm focus:outline-none min-h-[80px] placeholder-slate-400 text-slate-700 resize-none" placeholder="Escreva um comentário... (Use @ para mencionar)" value={commentText} onChange={e => setCommentText(e.target.value)}></textarea><div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200"><span className="text-xs text-slate-400 font-medium">Mencione @Nome para notificar</span><button onClick={handleSendComment} disabled={!commentText.trim()} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">Enviar</button></div></div></div>)}{activeTab === 'history' && task && (<div className="space-y-0">{task.history.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).map((h, i) => { const user = users.find(u => u.id === h.userId); return (<div key={h.id} className="flex gap-4 py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded-lg transition-colors"><div className="flex flex-col items-center"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200"><History size={14}/></div>{i !== task.history.length - 1 && <div className="w-px h-full bg-slate-200 my-1"></div>}</div><div className="text-sm pt-1"><div className="flex items-center gap-2 mb-1"><span className="font-bold text-slate-800">{user?.name}</span><span className="text-xs text-slate-400">{h.timestamp.toLocaleString()}</span></div><p className="text-slate-600">{h.action}</p></div></div>) })}</div>)}</div><div className="p-6 border-t border-slate-100 flex justify-between gap-3 shrink-0 bg-slate-50 rounded-b-3xl"><div>{task && onDelete && (currentUser.role === 'admin' || currentUser.role === 'master') && (<button onClick={() => onDelete(task.id)} className="px-6 py-2.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center gap-2"><Trash2 size={18} /> Deletar</button>)}</div><div className="flex gap-3"><button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button><button onClick={handleSave} className="px-8 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2"><Check size={18} /> Salvar Tarefa</button></div></div></div></div>); };
 
