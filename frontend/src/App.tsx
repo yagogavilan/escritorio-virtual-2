@@ -120,6 +120,9 @@ export default function App() {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
   }, []);
 
+  // Socket reconnection key (changes when token changes to force reconnect)
+  const [socketReconnectKey, setSocketReconnectKey] = useState(Date.now().toString());
+
   // Socket connection
   const socket = useSocket({
     onUserOnline: handleUserOnline,
@@ -130,7 +133,7 @@ export default function App() {
     onRoomKnocked: handleRoomKnocked,
     onCallIncoming: handleCallIncoming,
     onTaskMentioned: handleTaskMentioned,
-  });
+  }, socketReconnectKey);
 
   // Check if impersonating
   const [isImpersonating, setIsImpersonating] = useState(false);
@@ -175,7 +178,7 @@ export default function App() {
           sectors: sectorsRes.data
         });
 
-        if (user.role === 'master' || user.role === 'admin') {
+        if (user.role === 'master') {
           setCurrentView('admin');
         } else {
           setCurrentView('office');
@@ -291,6 +294,7 @@ export default function App() {
         const response = await authApi.visitorLogin(visitorName, visitorCode);
         localStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
+        setSocketReconnectKey(Date.now().toString()); // Force socket reconnect
         await loadOfficeData();
         setCurrentView('office');
       } else {
@@ -299,9 +303,10 @@ export default function App() {
         const response = await authApi.login(emailInput, passwordInput);
         localStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
+        setSocketReconnectKey(Date.now().toString()); // Force socket reconnect
         await loadOfficeData();
 
-        if (response.data.user.role === 'master' || response.data.user.role === 'admin') {
+        if (response.data.user.role === 'master') {
           setCurrentView('admin');
         } else {
           setCurrentView('office');
@@ -617,6 +622,7 @@ export default function App() {
       localStorage.setItem('token', response.data.token);
       setCurrentUser(response.data.user);
       setIsImpersonating(true);
+      setSocketReconnectKey(Date.now().toString()); // Force socket reconnect
 
       // Load office data for impersonated user
       await loadOfficeData();
@@ -641,6 +647,7 @@ export default function App() {
         const response = await authApi.me();
         setCurrentUser(response.data);
         setIsImpersonating(false);
+        setSocketReconnectKey(Date.now().toString()); // Force socket reconnect
 
         // Load office data
         await loadOfficeData();

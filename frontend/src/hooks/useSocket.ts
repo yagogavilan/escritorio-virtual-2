@@ -23,7 +23,7 @@ interface UseSocketOptions {
   onCallEnded?: (data: { endedBy: string }) => void;
 }
 
-export function useSocket(options: UseSocketOptions = {}) {
+export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: string) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -120,7 +120,26 @@ export function useSocket(options: UseSocketOptions = {}) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, []);
+  }, [
+    forceReconnectKey,
+    options.onUserOnline,
+    options.onUserOffline,
+    options.onUserStatusChanged,
+    options.onRoomUserJoined,
+    options.onRoomUserLeft,
+    options.onRoomKnocked,
+    options.onChatNewMessage,
+    options.onChatTyping,
+    options.onTaskCreated,
+    options.onTaskUpdated,
+    options.onTaskAssigned,
+    options.onTaskMentioned,
+    options.onAnnouncementNew,
+    options.onCallIncoming,
+    options.onCallAccepted,
+    options.onCallRejected,
+    options.onCallEnded,
+  ]);
 
   // Emit functions
   const changeStatus = useCallback((status: string, statusMessage?: string) => {
