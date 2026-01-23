@@ -466,6 +466,36 @@ export default function App() {
     }
   };
 
+  const handleCreateSector = async (sectorData: { name: string; color: string }) => {
+    try {
+      await sectorsApi.create(sectorData);
+      await loadOfficeData(); // Reload all data to update sectors
+    } catch (err) {
+      console.error('Failed to create sector:', err);
+      throw err;
+    }
+  };
+
+  const handleUpdateSector = async (sectorId: string, sectorData: { name: string; color: string }) => {
+    try {
+      await sectorsApi.update(sectorId, sectorData);
+      await loadOfficeData(); // Reload all data to update sectors
+    } catch (err) {
+      console.error('Failed to update sector:', err);
+      throw err;
+    }
+  };
+
+  const handleDeleteSector = async (sectorId: string) => {
+    try {
+      await sectorsApi.delete(sectorId);
+      await loadOfficeData(); // Reload all data to update sectors
+    } catch (err) {
+      console.error('Failed to delete sector:', err);
+      throw err;
+    }
+  };
+
   const handleKnock = (target: User) => {
     if (target.currentRoomId) {
       socket.knockRoom(target.currentRoomId);
@@ -882,6 +912,9 @@ export default function App() {
         onCreateUser={handleCreateUser}
         onDeleteUser={handleDeleteUser}
         onCreateInvite={handleCreateInvite}
+        onCreateSector={handleCreateSector}
+        onUpdateSector={handleUpdateSector}
+        onDeleteSector={handleDeleteSector}
       />
 
       {activeCall && (

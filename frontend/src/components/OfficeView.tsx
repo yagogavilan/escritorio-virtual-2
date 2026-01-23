@@ -31,6 +31,10 @@ interface OfficeViewProps {
   onCreateUser: (user: User) => void;
   onDeleteUser: (userId: string) => void;
   onCreateInvite: (durationInMinutes: number) => VisitorInvite;
+  // Sector management
+  onCreateSector?: (sectorData: { name: string; color: string }) => Promise<void>;
+  onUpdateSector?: (sectorId: string, sectorData: { name: string; color: string }) => Promise<void>;
+  onDeleteSector?: (sectorId: string) => Promise<void>;
 }
 
 const STATUS_CONFIG = {
@@ -80,9 +84,10 @@ const getUserAvatar = (user: User): string => {
     return user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff`;
 };
 
-export const OfficeView: React.FC<OfficeViewProps> = ({ 
+export const OfficeView: React.FC<OfficeViewProps> = ({
   office, currentUser, onLogout, onStartCall, onEnterRoom, onUpdateStatus, onKnock, onCreateRoom, onDeleteRoom,
-  onUpdateOffice, onUpdateUser, onCreateUser, onDeleteUser, onCreateInvite
+  onUpdateOffice, onUpdateUser, onCreateUser, onDeleteUser, onCreateInvite,
+  onCreateSector, onUpdateSector, onDeleteSector
 }) => {
   const [selectedSector, setSelectedSector] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -192,12 +197,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
   const filteredUsers = useMemo(() => {
     return office.users.filter(u => {
-      if (u.id === currentUser.id) return false;
+      // Removido filtro que excluía o próprio usuário - agora todos aparecem incluindo você mesmo
       const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = selectedSector === 'all' || u.sector === selectedSector;
       return matchesSearch && matchesSector;
     });
-  }, [office.users, searchQuery, selectedSector, currentUser.id]);
+  }, [office.users, searchQuery, selectedSector]);
 
   const usersBySector = useMemo(() => {
     const grouped: Record<string, User[]> = {};
@@ -477,12 +482,18 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     try {
       if (editingSectorId) {
         // Editar setor existente
-        const response = await sectorsApi.update(editingSectorId, sectorFormData);
-        office.sectors = office.sectors.map(s => s.id === editingSectorId ? response.data : s);
+        if (onUpdateSector) {
+          await onUpdateSector(editingSectorId, sectorFormData);
+        } else {
+          await sectorsApi.update(editingSectorId, sectorFormData);
+        }
       } else {
         // Criar novo setor
-        const response = await sectorsApi.create(sectorFormData);
-        office.sectors = [...office.sectors, response.data];
+        if (onCreateSector) {
+          await onCreateSector(sectorFormData);
+        } else {
+          await sectorsApi.create(sectorFormData);
+        }
       }
 
       setShowSectorModal(false);
