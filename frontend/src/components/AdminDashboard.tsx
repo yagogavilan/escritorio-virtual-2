@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import {
   Users, Building, Activity, DollarSign, Settings, LogOut, Plus, Search,
-  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle, UserCircle
+  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle, UserCircle, Edit, Trash2
 } from 'lucide-react';
 import { officeApi, usersApi } from '../api/client';
 import { Office, User } from '../types';
@@ -62,6 +62,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
   const [editingOffice, setEditingOffice] = useState<OfficeData | null>(null);
   const [hoveredOfficeId, setHoveredOfficeId] = useState<string | null>(null);
   const [officeUsers, setOfficeUsers] = useState<Record<string, User[]>>({});
+
+  // User Modal States
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const invoices = [
     { id: '#INV-2023-001', date: 'Oct 1, 2023', amount: '$2,400.00', status: 'Paid' },
@@ -175,6 +180,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
   const openEditModal = (office: OfficeData) => {
     setEditingOffice(office);
     setShowEditOfficeModal(true);
+  };
+
+  const handleCreateUser = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'admin' | 'user';
+    jobTitle?: string;
+    officeId?: string | null;
+    sectorId?: string | null;
+  }) => {
+    try {
+      await usersApi.create(data);
+      await loadData(); // Reload data
+      setShowCreateUserModal(false);
+    } catch (err: any) {
+      console.error('Error creating user:', err);
+      alert(err.response?.data?.error || 'Erro ao criar usuário');
+      throw err;
+    }
+  };
+
+  const handleEditUser = async (userId: string, data: {
+    name?: string;
+    role?: 'admin' | 'user' | 'master';
+    jobTitle?: string;
+    officeId?: string | null;
+    sectorId?: string | null;
+    password?: string;
+  }) => {
+    try {
+      await usersApi.update(userId, data);
+      await loadData(); // Reload data
+      setShowEditUserModal(false);
+      setEditingUser(null);
+    } catch (err: any) {
+      console.error('Error updating user:', err);
+      alert(err.response?.data?.error || 'Erro ao atualizar usuário');
+      throw err;
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Tem certeza que deseja deletar o usuário ${userName}?`)) {
+      return;
+    }
+
+    try {
+      await usersApi.delete(userId);
+      await loadData(); // Reload data
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      alert(err.response?.data?.error || 'Erro ao deletar usuário');
+    }
+  };
+
+  const openEditUserModal = (user: User) => {
+    setEditingUser(user);
+    setShowEditUserModal(true);
   };
 
   const renderSidebarItem = (id: Tab, label: string, Icon: React.ElementType) => (
@@ -391,23 +455,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
             <div className="space-y-6 animate-fade-in">
                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-slate-800">All Users</h3>
+                        <h3 className="text-lg font-bold text-slate-800">Todos os Usuários</h3>
                         <div className="flex gap-3">
-                            <button className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg">Filter</button>
-                            <button className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md shadow-indigo-200">Export CSV</button>
+                            <button className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg">Filtrar</button>
+                            <button
+                              onClick={() => setShowCreateUserModal(true)}
+                              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md shadow-indigo-200 flex items-center gap-2"
+                            >
+                              <Plus size={18} /> Criar Usuário
+                            </button>
                         </div>
                     </div>
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                             <tr>
-                                <th className="px-6 py-4">Name</th>
-                                <th className="px-6 py-4">Role</th>
+                                <th className="px-6 py-4">Usuário</th>
+                                <th className="px-6 py-4">Escritório</th>
+                                <th className="px-6 py-4">Cargo</th>
+                                <th className="px-6 py-4">Permissão</th>
                                 <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                <th className="px-6 py-4 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {users.map(user => (
+                            {users.map((user: any) => (
                                 <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
@@ -421,28 +492,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200">
-                                            {user.role}
+                                        <span className="text-sm text-slate-700">
+                                            {user.office?.name || '-'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="text-sm text-slate-700">
+                                            {user.jobTitle || '-'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${
+                                          user.role === 'master' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                          user.role === 'admin' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                          'bg-slate-100 text-slate-600 border-slate-200'
+                                        }`}>
+                                            {user.role === 'master' ? 'Master' : user.role === 'admin' ? 'Admin' : 'Usuário'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${user.status === 'Active' ? 'bg-green-500' : 'bg-slate-300'}`}></span>
-                                            <span className="text-sm text-slate-600 font-medium">{user.status}</span>
+                                            <span className={`w-2 h-2 rounded-full ${
+                                              user.status === 'online' ? 'bg-green-500' :
+                                              user.status === 'busy' ? 'bg-red-500' :
+                                              user.status === 'away' ? 'bg-yellow-500' :
+                                              'bg-slate-300'
+                                            }`}></span>
+                                            <span className="text-sm text-slate-600 font-medium capitalize">{user.status}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => onImpersonate(user.id)}
-                                                className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                                                className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-lg transition-colors"
                                                 title="Entrar como este usuário"
                                             >
                                                 <UserCircle size={18} />
-                                                Entrar como
                                             </button>
-                                            <button className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg transition-colors">
-                                                <MoreHorizontal size={18} />
+                                            <button
+                                                onClick={() => openEditUserModal(user)}
+                                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                                title="Editar usuário"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                                className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                                title="Deletar usuário"
+                                            >
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
                                     </td>
@@ -551,6 +651,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
             setEditingOffice(null);
           }}
           onSave={handleEditOffice}
+        />
+      )}
+
+      {/* Create User Modal */}
+      {showCreateUserModal && (
+        <CreateUserModal
+          offices={offices}
+          onClose={() => setShowCreateUserModal(false)}
+          onCreate={handleCreateUser}
+        />
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUserModal && editingUser && (
+        <EditUserModal
+          user={editingUser}
+          offices={offices}
+          onClose={() => {
+            setShowEditUserModal(false);
+            setEditingUser(null);
+          }}
+          onSave={(data) => handleEditUser(editingUser.id, data)}
         />
       )}
     </div>
@@ -873,6 +995,358 @@ const EditOfficeModal: React.FC<EditOfficeModalProps> = ({ office, onClose, onSa
               </div>
             </div>
           )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+// Create User Modal Component
+interface CreateUserModalProps {
+  offices: OfficeData[];
+  onClose: () => void;
+  onCreate: (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'admin' | 'user';
+    jobTitle?: string;
+    officeId?: string | null;
+    sectorId?: string | null;
+  }) => Promise<void>;
+}
+
+const CreateUserModal: React.FC<CreateUserModalProps> = ({ offices, onClose, onCreate }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'admin' | 'user'>('user');
+  const [jobTitle, setJobTitle] = useState('');
+  const [officeId, setOfficeId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      alert('Nome, email e senha são obrigatórios');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        role,
+        jobTitle: jobTitle.trim() || undefined,
+        officeId: officeId || null,
+        sectorId: null,
+      });
+    } catch (err) {
+      // Error already handled
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+          <h3 className="text-xl font-bold text-slate-800">Criar Novo Usuário</h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Nome Completo <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: João Silva"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="joao@empresa.com"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Senha <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Cargo
+            </label>
+            <input
+              type="text"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="Ex: Desenvolvedor, Gerente"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Escritório
+            </label>
+            <select
+              value={officeId}
+              onChange={(e) => setOfficeId(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            >
+              <option value="">Nenhum</option>
+              {offices.map((office) => (
+                <option key={office.id} value={office.id}>
+                  {office.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Permissão <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'admin' | 'user')}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            >
+              <option value="user">Usuário</option>
+              <option value="admin">Admin</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              Admin pode gerenciar usuários do seu escritório
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Criando...' : 'Criar Usuário'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Edit User Modal Component
+interface EditUserModalProps {
+  user: any;
+  offices: OfficeData[];
+  onClose: () => void;
+  onSave: (data: {
+    name?: string;
+    role?: 'admin' | 'user' | 'master';
+    jobTitle?: string;
+    officeId?: string | null;
+    sectorId?: string | null;
+    password?: string;
+  }) => Promise<void>;
+}
+
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, offices, onClose, onSave }) => {
+  const [name, setName] = useState(user.name || '');
+  const [role, setRole] = useState<'admin' | 'user' | 'master'>(user.role || 'user');
+  const [jobTitle, setJobTitle] = useState(user.jobTitle || '');
+  const [officeId, setOfficeId] = useState<string>(user.officeId || '');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const data: any = {
+        name: name.trim(),
+        role,
+        jobTitle: jobTitle.trim() || undefined,
+        officeId: officeId || null,
+        sectorId: null,
+      };
+
+      if (password.trim()) {
+        if (password.length < 6) {
+          alert('A senha deve ter no mínimo 6 caracteres');
+          setIsSubmitting(false);
+          return;
+        }
+        data.password = password.trim();
+      }
+
+      await onSave(data);
+    } catch (err) {
+      // Error already handled
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+          <h3 className="text-xl font-bold text-slate-800">Editar Usuário</h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="bg-slate-50 p-3 rounded-xl">
+            <p className="text-xs text-slate-500 font-medium">Email</p>
+            <p className="text-sm text-slate-800 font-medium">{user.email}</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Nome Completo <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: João Silva"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Cargo
+            </label>
+            <input
+              type="text"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="Ex: Desenvolvedor, Gerente"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Escritório
+            </label>
+            <select
+              value={officeId}
+              onChange={(e) => setOfficeId(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+            >
+              <option value="">Nenhum</option>
+              {offices.map((office) => (
+                <option key={office.id} value={office.id}>
+                  {office.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Permissão <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'admin' | 'user' | 'master')}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              required
+            >
+              <option value="user">Usuário</option>
+              <option value="admin">Admin</option>
+              <option value="master">Master</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              Admin pode gerenciar usuários do seu escritório
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Nova Senha (opcional)
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Deixe em branco para manter a atual"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+              minLength={6}
+            />
+          </div>
 
           <div className="flex gap-3 pt-4">
             <button
