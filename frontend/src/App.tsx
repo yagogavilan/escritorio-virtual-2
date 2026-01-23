@@ -178,6 +178,7 @@ export default function App() {
           sectors: sectorsRes.data
         });
 
+        // Only master users access admin panel
         if (user.role === 'master') {
           setCurrentView('admin');
         } else {
@@ -306,6 +307,7 @@ export default function App() {
         setSocketReconnectKey(Date.now().toString()); // Force socket reconnect
         await loadOfficeData();
 
+        // Only master users access admin panel
         if (response.data.user.role === 'master') {
           setCurrentView('admin');
         } else {
