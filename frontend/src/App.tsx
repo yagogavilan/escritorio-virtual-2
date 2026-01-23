@@ -3,7 +3,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { OfficeView } from './components/OfficeView';
 import { VideoModal } from './components/VideoModal';
 import { User, UserStatus, Room, Office, VisitorInvite, Sector } from './types';
-import { ArrowRight, Layers, LayoutGrid, ShieldCheck, Phone, PhoneIncoming, X, Check, Clock, Lock, Ticket, Briefcase, Loader2 } from 'lucide-react';
+import { ArrowRight, Layers, LayoutGrid, ShieldCheck, Phone, PhoneIncoming, X, Check, Clock, Lock, Ticket, Briefcase, Loader2, UserCircle } from 'lucide-react';
 import { authApi, usersApi, officeApi, sectorsApi, roomsApi, invitesApi } from './api/client';
 import { useSocket } from './hooks/useSocket';
 
@@ -132,13 +132,22 @@ export default function App() {
     onTaskMentioned: handleTaskMentioned,
   });
 
+  // Check if impersonating
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (!token) {
         setIsLoading(false);
         return;
+      }
+
+      // Check if impersonating
+      const masterToken = localStorage.getItem('masterToken');
+      if (masterToken) {
+        setIsImpersonating(true);
       }
 
       try {
@@ -232,7 +241,7 @@ export default function App() {
           await authApi.logout();
         } catch {}
         localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
+        localStorage.removeItem('masterToken');
       }
     };
 
@@ -280,7 +289,7 @@ export default function App() {
         if (!visitorCode || !visitorName) return;
 
         const response = await authApi.visitorLogin(visitorName, visitorCode);
-        sessionStorage.setItem('token', response.data.token);
+        localStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
         await loadOfficeData();
         setCurrentView('office');
@@ -288,7 +297,7 @@ export default function App() {
         if (!emailInput || !passwordInput) return;
 
         const response = await authApi.login(emailInput, passwordInput);
-        sessionStorage.setItem('token', response.data.token);
+        localStorage.setItem('token', response.data.token);
         setCurrentUser(response.data.user);
         await loadOfficeData();
 
@@ -313,7 +322,8 @@ export default function App() {
       await authApi.logout();
     } catch {}
 
-    sessionStorage.removeItem('token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('masterToken');
     setCurrentUser(null);
     setCurrentView('login');
     setEmailInput('');
@@ -321,6 +331,7 @@ export default function App() {
     setVisitorCode('');
     setIncomingCall(null);
     setActiveCall(null);
+    setIsImpersonating(false);
     setOfficeData({
       id: 'default',
       name: 'Nexus Office',
@@ -593,6 +604,55 @@ export default function App() {
     }
   };
 
+  const handleImpersonate = async (userId: string) => {
+    try {
+      // Save current master token
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        localStorage.setItem('masterToken', currentToken);
+      }
+
+      // Impersonate user
+      const response = await authApi.impersonate(userId);
+      localStorage.setItem('token', response.data.token);
+      setCurrentUser(response.data.user);
+      setIsImpersonating(true);
+
+      // Load office data for impersonated user
+      await loadOfficeData();
+
+      // Navigate to office view
+      setCurrentView('office');
+    } catch (err: any) {
+      console.error('Failed to impersonate user:', err);
+      alert(err.response?.data?.error || 'Erro ao entrar como usuário');
+    }
+  };
+
+  const handleUnimpersonate = async () => {
+    try {
+      // Restore master token
+      const masterToken = localStorage.getItem('masterToken');
+      if (masterToken) {
+        localStorage.setItem('token', masterToken);
+        localStorage.removeItem('masterToken');
+
+        // Reload master user data
+        const response = await authApi.me();
+        setCurrentUser(response.data);
+        setIsImpersonating(false);
+
+        // Load office data
+        await loadOfficeData();
+
+        // Navigate back to admin view
+        setCurrentView('admin');
+      }
+    } catch (err) {
+      console.error('Failed to unimpersonate:', err);
+    }
+  };
+
   // Loading screen
   if (isLoading) {
     return (
@@ -760,6 +820,7 @@ export default function App() {
       <AdminDashboard
         onLogout={handleLogout}
         onEnterDemo={handleEnterDemoFromAdmin}
+        onImpersonate={handleImpersonate}
       />
     );
   }
@@ -767,6 +828,25 @@ export default function App() {
   // Render Office
   return (
     <>
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-3">
+            <UserCircle size={20} />
+            <span className="font-semibold text-sm">
+              Você está logado como: <span className="font-bold">{currentUser?.name}</span>
+            </span>
+          </div>
+          <button
+            onClick={handleUnimpersonate}
+            className="px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold text-sm hover:bg-purple-50 transition-colors flex items-center gap-2"
+          >
+            <ArrowRight size={16} className="rotate-180" />
+            Voltar para conta Master
+          </button>
+        </div>
+      )}
+
       {/* Dev Tool: Fake Call Trigger */}
       <div className="fixed top-24 right-8 z-40 group">
         <button

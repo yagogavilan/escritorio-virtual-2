@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import {
   Users, Building, Activity, DollarSign, Settings, LogOut, Plus, Search,
-  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle
+  MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle, UserCircle
 } from 'lucide-react';
 import { officeApi, usersApi } from '../api/client';
 import { Office, User } from '../types';
@@ -29,6 +29,7 @@ const dataSectors = [
 interface AdminDashboardProps {
   onLogout: () => void;
   onEnterDemo: () => void;
+  onImpersonate: (userId: string) => void;
 }
 
 type Tab = 'dashboard' | 'offices' | 'users' | 'billing';
@@ -46,7 +47,7 @@ interface OfficeData {
   workingHoursEnd?: string;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnterDemo }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnterDemo, onImpersonate }) => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
   // Real Data States
@@ -431,9 +432,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg transition-colors">
-                                            <MoreHorizontal size={18} />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => onImpersonate(user.id)}
+                                                className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                                                title="Entrar como este usuário"
+                                            >
+                                                <UserCircle size={18} />
+                                                Entrar como
+                                            </button>
+                                            <button className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                <MoreHorizontal size={18} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

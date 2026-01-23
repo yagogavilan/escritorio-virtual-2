@@ -11,7 +11,7 @@ export const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = sessionStorage.getItem('token');
+  const token = localStorage.getItem('token');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -23,7 +23,8 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      sessionStorage.removeItem('token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('masterToken');
       window.location.href = '/';
     }
     return Promise.reject(error);
@@ -39,6 +40,7 @@ export const authApi = {
   logout: () => api.post('/auth/logout'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post('/auth/change-password', { currentPassword, newPassword }),
+  impersonate: (userId: string) => api.post(`/auth/impersonate/${userId}`),
 };
 
 // Users API

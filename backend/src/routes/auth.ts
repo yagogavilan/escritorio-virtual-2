@@ -236,4 +236,54 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     return { success: true };
   });
+
+  // Impersonate user (master only)
+  fastify.post('/impersonate/:userId', {
+    preHandler: [(fastify as any).authenticate],
+  }, async (request, reply) => {
+    const { role } = request.user as { id: string; role: string };
+    const { userId } = request.params as { userId: string };
+
+    // Only master users can impersonate
+    if (role !== 'master') {
+      return reply.status(403).send({ error: 'Apenas usuários master podem usar esta funcionalidade' });
+    }
+
+    // Get target user
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { sector: true, office: true },
+    });
+
+    if (!targetUser) {
+      return reply.status(404).send({ error: 'Usuário não encontrado' });
+    }
+
+    // Generate token for target user
+    const token = fastify.jwt.sign({
+      id: targetUser.id,
+      email: targetUser.email,
+      role: targetUser.role,
+      officeId: targetUser.officeId,
+      impersonatedBy: (request.user as any).id, // Store who is impersonating
+    });
+
+    return {
+      token,
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+        avatar: targetUser.avatar,
+        role: targetUser.role,
+        status: targetUser.status,
+        statusMessage: targetUser.statusMessage,
+        jobTitle: targetUser.jobTitle,
+        sector: targetUser.sector?.name || '',
+        sectorId: targetUser.sectorId,
+        officeId: targetUser.officeId,
+        office: targetUser.office ? { id: targetUser.office.id, name: targetUser.office.name } : null,
+      },
+    };
+  });
 }

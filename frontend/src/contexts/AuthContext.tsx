@@ -6,10 +6,13 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isImpersonating: boolean;
   login: (email: string) => Promise<void>;
   visitorLogin: (name: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  impersonate: (userId: string) => Promise<void>;
+  unimpersonate: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -17,6 +20,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -62,16 +66,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => (prev ? { ...prev, ...updates } : null));
   }, []);
 
+  const impersonate = useCallback(async (userId: string) => {
+    // Save current master token
+    const currentToken = localStorage.getItem('token');
+    if (currentToken) {
+      localStorage.setItem('masterToken', currentToken);
+    }
+
+    // Impersonate user
+    const response = await authApi.impersonate(userId);
+    localStorage.setItem('token', response.data.token);
+    setUser(response.data.user);
+    setIsImpersonating(true);
+  }, []);
+
+  const unimpersonate = useCallback(async () => {
+    // Restore master token
+    const masterToken = localStorage.getItem('masterToken');
+    if (masterToken) {
+      localStorage.setItem('token', masterToken);
+      localStorage.removeItem('masterToken');
+
+      // Reload master user data
+      const response = await authApi.me();
+      setUser(response.data);
+      setIsImpersonating(false);
+    }
+  }, []);
+
+  // Check if impersonating on mount
+  useEffect(() => {
+    const masterToken = localStorage.getItem('masterToken');
+    if (masterToken) {
+      setIsImpersonating(true);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
         isAuthenticated: !!user,
+        isImpersonating,
         login,
         visitorLogin,
         logout,
         updateUser,
+        impersonate,
+        unimpersonate,
       }}
     >
       {children}
