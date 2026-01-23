@@ -130,11 +130,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
-  // Sector Management
-  const [showSectorModal, setShowSectorModal] = useState(false);
-  const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
-  const [sectorFormData, setSectorFormData] = useState({ name: '', color: '#3b82f6' });
-
   // --- Notification State ---
   const [hasNotifications, setHasNotifications] = useState(false);
 
@@ -471,38 +466,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
           }, ...prev]);
           setHasNotifications(true);
       }
-  };
-
-  const handleSaveSector = async () => {
-    if (!sectorFormData.name) {
-      alert('Digite o nome do setor');
-      return;
-    }
-
-    try {
-      if (editingSectorId) {
-        // Editar setor existente
-        if (onUpdateSector) {
-          await onUpdateSector(editingSectorId, sectorFormData);
-        } else {
-          await sectorsApi.update(editingSectorId, sectorFormData);
-        }
-      } else {
-        // Criar novo setor
-        if (onCreateSector) {
-          await onCreateSector(sectorFormData);
-        } else {
-          await sectorsApi.create(sectorFormData);
-        }
-      }
-
-      setShowSectorModal(false);
-      setEditingSectorId(null);
-      setSectorFormData({ name: '', color: '#3b82f6' });
-    } catch (error) {
-      console.error('Erro ao salvar setor:', error);
-      alert('Erro ao salvar setor. Tente novamente.');
-    }
   };
 
   const handleTaskClick = (task: Task) => {
@@ -1102,7 +1065,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       )}
 
       {showSettingsModal && isAdmin && (
-          <SettingsModal 
+          <SettingsModal
               office={office}
               onClose={() => setShowSettingsModal(false)}
               onUpdateOffice={onUpdateOffice}
@@ -1110,6 +1073,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               onCreateUser={onCreateUser}
               onDeleteUser={onDeleteUser}
               onCreateInvite={onCreateInvite}
+              onCreateSector={onCreateSector}
+              onUpdateSector={onUpdateSector}
+              onDeleteSector={onDeleteSector}
           />
       )}
 
@@ -1119,52 +1085,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               onClose={() => setShowEditProfileModal(false)}
               onUpdate={onUpdateUser}
           />
-      )}
-
-      {showSectorModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-slate-800">{editingSectorId ? 'Editar Setor' : 'Novo Setor'}</h3>
-              <button onClick={() => setShowSectorModal(false)}><X size={20} className="text-slate-400" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Nome do Setor</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl bg-white text-black"
-                  value={sectorFormData.name}
-                  onChange={(e) => setSectorFormData({...sectorFormData, name: e.target.value})}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Cor</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    className="h-10 w-10 border-0 rounded cursor-pointer"
-                    value={sectorFormData.color}
-                    onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
-                  />
-                  <input
-                    type="text"
-                    className="w-32 px-4 py-2 border border-slate-300 rounded-xl uppercase bg-white text-black"
-                    value={sectorFormData.color}
-                    onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
-                  />
-                </div>
-              </div>
-              <button
-                onClick={handleSaveSector}
-                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700"
-              >
-                {editingSectorId ? 'Salvar Alterações' : 'Criar Setor'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
     </div>
@@ -1179,9 +1099,12 @@ const SettingsModal: React.FC<{
     onCreateUser: (user: User) => void;
     onDeleteUser: (userId: string) => void;
     onCreateInvite: (durationInMinutes: number) => VisitorInvite;
-}> = ({ office, onClose, onUpdateOffice, onUpdateUser, onCreateUser, onDeleteUser, onCreateInvite }) => {
+    onCreateSector?: (sectorData: { name: string; color: string }) => Promise<void>;
+    onUpdateSector?: (sectorId: string, sectorData: { name: string; color: string }) => Promise<void>;
+    onDeleteSector?: (sectorId: string) => Promise<void>;
+}> = ({ office, onClose, onUpdateOffice, onUpdateUser, onCreateUser, onDeleteUser, onCreateInvite, onCreateSector, onUpdateSector, onDeleteSector }) => {
     const [activeTab, setActiveTab] = useState<'general' | 'users' | 'sectors' | 'schedule' | 'visitors'>('general');
-    
+
     // General State
     const [officeName, setOfficeName] = useState(office.name);
     const [logoUrl, setLogoUrl] = useState(office.logo);
@@ -1200,6 +1123,11 @@ const SettingsModal: React.FC<{
     // Visitor State
     const [inviteDuration, setInviteDuration] = useState<number>(24); // Hours
     const [lastCreatedInvite, setLastCreatedInvite] = useState<VisitorInvite | null>(null);
+
+    // Sector Management State
+    const [showSectorModal, setShowSectorModal] = useState(false);
+    const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
+    const [sectorFormData, setSectorFormData] = useState({ name: '', color: '#3b82f6' });
 
     const handleSaveGeneral = () => {
         onUpdateOffice({ name: officeName, logo: logoUrl, primaryColor: color });
@@ -1255,6 +1183,36 @@ const SettingsModal: React.FC<{
             setFormData({ role: 'user', sector: office.sectors[0]?.id });
         } else {
             alert("Preencha os campos obrigatórios (Nome, Email, Setor).");
+        }
+    };
+
+    const handleSaveSector = async () => {
+        if (!sectorFormData.name) {
+            alert('Digite o nome do setor');
+            return;
+        }
+
+        try {
+            if (editingSectorId) {
+                if (onUpdateSector) {
+                    await onUpdateSector(editingSectorId, sectorFormData);
+                } else {
+                    await sectorsApi.update(editingSectorId, sectorFormData);
+                }
+            } else {
+                if (onCreateSector) {
+                    await onCreateSector(sectorFormData);
+                } else {
+                    await sectorsApi.create(sectorFormData);
+                }
+            }
+
+            setShowSectorModal(false);
+            setEditingSectorId(null);
+            setSectorFormData({ name: '', color: '#3b82f6' });
+        } catch (error) {
+            console.error('Erro ao salvar setor:', error);
+            alert('Erro ao salvar setor. Tente novamente.');
         }
     };
 
@@ -1479,6 +1437,52 @@ const SettingsModal: React.FC<{
                     </div>
                 </div>
             </div>
+
+            {showSectorModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-slate-800">{editingSectorId ? 'Editar Setor' : 'Novo Setor'}</h3>
+                            <button onClick={() => setShowSectorModal(false)}><X size={20} className="text-slate-400" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Nome do Setor</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-4 py-2 border border-slate-300 rounded-xl bg-white text-black"
+                                    value={sectorFormData.name}
+                                    onChange={(e) => setSectorFormData({...sectorFormData, name: e.target.value})}
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Cor</label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        className="h-10 w-10 border-0 rounded cursor-pointer"
+                                        value={sectorFormData.color}
+                                        onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
+                                    />
+                                    <input
+                                        type="text"
+                                        className="w-32 px-4 py-2 border border-slate-300 rounded-xl uppercase bg-white text-black"
+                                        value={sectorFormData.color}
+                                        onChange={(e) => setSectorFormData({...sectorFormData, color: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleSaveSector}
+                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700"
+                            >
+                                {editingSectorId ? 'Salvar Alterações' : 'Criar Setor'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
