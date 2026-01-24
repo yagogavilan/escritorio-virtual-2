@@ -236,7 +236,7 @@ export async function userRoutes(fastify: FastifyInstance) {
       email: z.string().email(),
       name: z.string().min(1),
       password: z.string().min(6),
-      role: z.enum(['admin', 'user']),
+      role: z.enum(['admin', 'user', 'master']),
       jobTitle: z.string().optional(),
       sectorId: z.string().nullable().optional(),
       officeId: z.string().nullable().optional(),

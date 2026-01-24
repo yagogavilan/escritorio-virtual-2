@@ -1025,7 +1025,7 @@ interface CreateUserModalProps {
     name: string;
     email: string;
     password: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'user' | 'master';
     jobTitle?: string;
     officeId?: string | null;
     sectorId?: string | null;
@@ -1036,7 +1036,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ offices, onClose, onC
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'admin' | 'user'>('user');
+  const [role, setRole] = useState<'admin' | 'user' | 'master'>('user');
   const [jobTitle, setJobTitle] = useState('');
   const [officeId, setOfficeId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1160,15 +1160,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ offices, onClose, onC
             </label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as 'admin' | 'user')}
+              onChange={(e) => setRole(e.target.value as 'admin' | 'user' | 'master')}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
               required
             >
               <option value="user">Usuário</option>
               <option value="admin">Admin</option>
+              <option value="master">Master</option>
             </select>
             <p className="text-xs text-slate-500 mt-1">
-              Admin pode gerenciar usuários do seu escritório
+              Admin pode gerenciar usuários do seu escritório. Master tem acesso total à plataforma.
             </p>
           </div>
 

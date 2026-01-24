@@ -669,11 +669,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
                 {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
                 <div className="space-y-6">
-                    {office.sectors.filter(sector => {
-                        // Se 'all' está selecionado, mostrar todos os setores
-                        // Se um setor específico está selecionado, mostrar apenas ele
-                        return selectedSector === 'all' || sector.id === selectedSector;
-                    }).map((sector) => {
+                    {office.sectors.map((sector) => {
                         const sectorUsers = filteredUsers.filter(u => u.sector === sector.id);
                         if (sectorUsers.length === 0) return null;
 
