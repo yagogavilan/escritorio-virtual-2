@@ -47,6 +47,24 @@ export default function App() {
   const [visitorCode, setVisitorCode] = useState('');
 
   // Socket handlers
+  const handleUsersInitialState = useCallback((data: { users: Array<{ id: string; status: string; statusMessage?: string; currentRoomId?: string | null }> }) => {
+    setOfficeData(prev => ({
+      ...prev,
+      users: prev.users.map(u => {
+        const onlineUser = data.users.find(ou => ou.id === u.id);
+        if (onlineUser) {
+          return {
+            ...u,
+            status: onlineUser.status as UserStatus,
+            statusMessage: onlineUser.statusMessage,
+            currentRoomId: onlineUser.currentRoomId || undefined
+          };
+        }
+        return u;
+      })
+    }));
+  }, []);
+
   const handleUserOnline = useCallback((data: { userId: string }) => {
     setOfficeData(prev => ({
       ...prev,
@@ -125,6 +143,7 @@ export default function App() {
 
   // Socket connection
   const socket = useSocket({
+    onUsersInitialState: handleUsersInitialState,
     onUserOnline: handleUserOnline,
     onUserOffline: handleUserOffline,
     onUserStatusChanged: handleUserStatusChanged,

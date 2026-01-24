@@ -16,8 +16,17 @@ export async function sectorRoutes(fastify: FastifyInstance) {
   // Get all sectors
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
-  }, async () => {
+  }, async (request) => {
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
+
+    // Filter by officeId unless user is master
+    const whereClause: any = {};
+    if (currentUser.role !== 'master') {
+      whereClause.officeId = currentUser.officeId || null;
+    }
+
     const sectors = await prisma.sector.findMany({
+      where: whereClause,
       include: { _count: { select: { users: true } } },
       orderBy: { name: 'asc' },
     });
@@ -34,7 +43,7 @@ export async function sectorRoutes(fastify: FastifyInstance) {
   fastify.post('/', {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
-    const currentUser = request.user as { role: string };
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
     if (!['admin', 'master'].includes(currentUser.role)) {
       return reply.status(403).send({ error: 'Forbidden' });
@@ -46,7 +55,10 @@ export async function sectorRoutes(fastify: FastifyInstance) {
     }
 
     const sector = await prisma.sector.create({
-      data: result.data,
+      data: {
+        ...result.data,
+        officeId: currentUser.officeId,
+      },
     });
 
     return {

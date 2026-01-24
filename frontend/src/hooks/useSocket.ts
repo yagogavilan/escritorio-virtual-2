@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
 
 interface UseSocketOptions {
+  onUsersInitialState?: (data: { users: Array<{ id: string; status: string; statusMessage?: string; currentRoomId?: string | null }> }) => void;
   onUserOnline?: (data: { userId: string }) => void;
   onUserOffline?: (data: { userId: string }) => void;
   onUserStatusChanged?: (data: { userId: string; status: string; statusMessage?: string; currentRoomId?: string | null }) => void;
@@ -52,6 +53,11 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
     socket.on('error', (error: { message: string }) => {
       console.error('Socket error:', error.message);
     });
+
+    // Initial state
+    if (options.onUsersInitialState) {
+      socket.on('users:initial_state', options.onUsersInitialState);
+    }
 
     // Presence events
     if (options.onUserOnline) {
@@ -122,6 +128,7 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
     };
   }, [
     forceReconnectKey,
+    options.onUsersInitialState,
     options.onUserOnline,
     options.onUserOffline,
     options.onUserStatusChanged,

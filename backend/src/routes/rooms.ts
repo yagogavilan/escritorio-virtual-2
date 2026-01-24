@@ -26,8 +26,17 @@ export async function roomRoutes(fastify: FastifyInstance) {
   // Get all rooms
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
-  }, async () => {
+  }, async (request) => {
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
+
+    // Filter by officeId unless user is master
+    const whereClause: any = {};
+    if (currentUser.role !== 'master') {
+      whereClause.officeId = currentUser.officeId || null;
+    }
+
     const rooms = await prisma.room.findMany({
+      where: whereClause,
       include: {
         participants: {
           select: {
@@ -64,7 +73,7 @@ export async function roomRoutes(fastify: FastifyInstance) {
   fastify.post('/', {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
-    const currentUser = request.user as { id: string; role: string };
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
     if (!['admin', 'master'].includes(currentUser.role)) {
       return reply.status(403).send({ error: 'Forbidden' });
@@ -79,6 +88,7 @@ export async function roomRoutes(fastify: FastifyInstance) {
       data: {
         ...result.data,
         ownerId: currentUser.id,
+        officeId: currentUser.officeId,
       },
     });
 
@@ -157,7 +167,7 @@ export async function roomRoutes(fastify: FastifyInstance) {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const currentUser = request.user as { id: string };
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
     const room = await prisma.room.findUnique({
       where: { id },
@@ -166,6 +176,11 @@ export async function roomRoutes(fastify: FastifyInstance) {
 
     if (!room) {
       return reply.status(404).send({ error: 'Room not found' });
+    }
+
+    // Validate user can only join rooms from their office (unless master)
+    if (currentUser.role !== 'master' && room.officeId !== currentUser.officeId) {
+      return reply.status(403).send({ error: 'Cannot join rooms from other offices' });
     }
 
     if (room.participants.length >= room.capacity) {

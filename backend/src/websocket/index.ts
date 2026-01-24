@@ -7,12 +7,14 @@ const prisma = new PrismaClient();
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   userRole?: string;
+  officeId?: string | null;
 }
 
 interface UserPayload {
   id: string;
   email: string;
   role: string;
+  officeId?: string | null;
 }
 
 // Track online users: Map<userId, Set<socketId>>
@@ -38,6 +40,7 @@ export async function setupWebSocket(io: Server) {
       const payload = jwt.verify(token, secret) as UserPayload;
       socket.userId = payload.id;
       socket.userRole = payload.role;
+      socket.officeId = payload.officeId;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -46,7 +49,8 @@ export async function setupWebSocket(io: Server) {
 
   io.on('connection', async (socket: AuthenticatedSocket) => {
     const userId = socket.userId!;
-    console.log(`User ${userId} connected`);
+    const officeId = socket.officeId;
+    console.log(`User ${userId} connected (office: ${officeId})`);
 
     // Track user connection
     if (!onlineUsers.has(userId)) {
@@ -60,11 +64,35 @@ export async function setupWebSocket(io: Server) {
       data: { status: 'online' },
     });
 
-    // Broadcast user online
-    socket.broadcast.emit('user:online', { userId });
-
     // Join user's personal room
     socket.join(`user:${userId}`);
+
+    // Join office room for isolated broadcasting
+    if (officeId) {
+      socket.join(`office:${officeId}`);
+    }
+
+    // Broadcast user online to same office only
+    if (officeId) {
+      socket.to(`office:${officeId}`).emit('user:online', { userId });
+    }
+
+    // Send initial state of online users in the same office
+    const onlineOfficeUsers = await prisma.user.findMany({
+      where: {
+        officeId: officeId,
+        status: { not: 'offline' },
+        id: { not: userId }, // Exclude current user
+      },
+      select: {
+        id: true,
+        status: true,
+        statusMessage: true,
+        currentRoomId: true,
+      },
+    });
+
+    socket.emit('users:initial_state', { users: onlineOfficeUsers });
 
     // --- PRESENCE EVENTS ---
 
@@ -77,11 +105,14 @@ export async function setupWebSocket(io: Server) {
         },
       });
 
-      io.emit('user:status_changed', {
-        userId,
-        status: data.status,
-        statusMessage: data.statusMessage,
-      });
+      // Broadcast only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('user:status_changed', {
+          userId,
+          status: data.status,
+          statusMessage: data.statusMessage,
+        });
+      }
     });
 
     // --- ROOM EVENTS ---
@@ -119,15 +150,19 @@ export async function setupWebSocket(io: Server) {
       });
 
       socket.join(`room:${data.roomId}`);
-      io.emit('room:user_joined', {
-        roomId: data.roomId,
-        userId,
-      });
-      io.emit('user:status_changed', {
-        userId,
-        status: 'in_meeting',
-        currentRoomId: data.roomId,
-      });
+
+      // Broadcast only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('room:user_joined', {
+          roomId: data.roomId,
+          userId,
+        });
+        io.to(`office:${officeId}`).emit('user:status_changed', {
+          userId,
+          status: 'in_meeting',
+          currentRoomId: data.roomId,
+        });
+      }
     });
 
     socket.on('room:leave', async (data: { roomId: string }) => {
@@ -137,15 +172,19 @@ export async function setupWebSocket(io: Server) {
       });
 
       socket.leave(`room:${data.roomId}`);
-      io.emit('room:user_left', {
-        roomId: data.roomId,
-        userId,
-      });
-      io.emit('user:status_changed', {
-        userId,
-        status: 'online',
-        currentRoomId: null,
-      });
+
+      // Broadcast only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('room:user_left', {
+          roomId: data.roomId,
+          userId,
+        });
+        io.to(`office:${officeId}`).emit('user:status_changed', {
+          userId,
+          status: 'online',
+          currentRoomId: null,
+        });
+      }
     });
 
     socket.on('room:knock', async (data: { roomId: string }) => {
@@ -215,11 +254,17 @@ export async function setupWebSocket(io: Server) {
     // --- TASK EVENTS ---
 
     socket.on('task:created', (data: { task: any }) => {
-      io.emit('task:created', { task: data.task, createdBy: userId });
+      // Broadcast only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('task:created', { task: data.task, createdBy: userId });
+      }
     });
 
     socket.on('task:updated', (data: { task: any }) => {
-      io.emit('task:updated', { task: data.task, updatedBy: userId });
+      // Broadcast only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('task:updated', { task: data.task, updatedBy: userId });
+      }
     });
 
     socket.on('task:assigned', (data: { taskId: string; assigneeId: string }) => {
@@ -235,8 +280,10 @@ export async function setupWebSocket(io: Server) {
       const { recipients } = data.announcement;
 
       if (!recipients || recipients.length === 0) {
-        // Broadcast to all
-        io.emit('announcement:new', { announcement: data.announcement });
+        // Broadcast to same office only
+        if (officeId) {
+          io.to(`office:${officeId}`).emit('announcement:new', { announcement: data.announcement });
+        }
       } else {
         // Send to specific users
         recipients.forEach((recipientId: string) => {
@@ -291,8 +338,8 @@ export async function setupWebSocket(io: Server) {
 
           // Leave room if in one
           const user = await prisma.user.findUnique({ where: { id: userId } });
-          if (user?.currentRoomId) {
-            io.emit('room:user_left', {
+          if (user?.currentRoomId && officeId) {
+            io.to(`office:${officeId}`).emit('room:user_left', {
               roomId: user.currentRoomId,
               userId,
             });
@@ -303,7 +350,10 @@ export async function setupWebSocket(io: Server) {
             data: { status: 'offline', currentRoomId: null },
           });
 
-          io.emit('user:offline', { userId });
+          // Broadcast offline only to same office
+          if (officeId) {
+            io.to(`office:${officeId}`).emit('user:offline', { userId });
+          }
         }
       }
     });
