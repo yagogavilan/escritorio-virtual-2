@@ -614,48 +614,92 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
             <section className="animate-fade-in-up animation-delay-200 pb-20">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Users className="text-indigo-600" size={24} /> Colaboradores</h3>
-                    <div className="flex flex-wrap items-center gap-4">
-                       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide max-w-[60vw]">
-                           <button onClick={() => setSelectedSector('all')} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-sm whitespace-nowrap ${selectedSector === 'all' ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Todos</button>
-                           {office.sectors.map(sector => (
-                               <button key={sector.id} onClick={() => setSelectedSector(sector.id)} className={`px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-sm whitespace-nowrap flex items-center gap-2 ${selectedSector === sector.id ? 'bg-indigo-600 text-white ring-2 ring-indigo-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}><span className={`w-2 h-2 rounded-full ${sector.color.replace('bg-', 'bg-')}`}></span>{sector.name}</button>
-                           ))}
-                       </div>
-                       <div className="flex bg-white rounded-xl p-1.5 border border-slate-200 shadow-sm">
-                           <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}><Briefcase size={20} /></button>
-                           <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}><Users size={20} /></button>
-                       </div>
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <Users className="text-indigo-600" size={24} />
+                        Colaboradores
+                        <span className="text-sm font-normal text-slate-500">({filteredUsers.length} no escritório)</span>
+                    </h3>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="text"
+                            placeholder="Buscar colaborador..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
                     </div>
                 </div>
 
-                <div className="space-y-8">
-                     {selectedSector === 'all' && viewMode === 'grid' ? (
-                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                            {filteredUsers.map(user => (
-                                <UserCard key={user.id} user={user} sectorName={office.sectors.find(s => s.id === user.sector)?.name} roomName={user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined} onStartCall={() => onStartCall(user)} onKnock={() => onKnock(user)} onOpenChat={() => handleOpenChatWithUser(user)} />
-                            ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredUsers.length === 0 ? (
+                        <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
+                            <Users size={48} className="mb-4 opacity-20" />
+                            <p>Nenhum colaborador encontrado</p>
                         </div>
-                     ) : (
-                        office.sectors.filter(s => selectedSector === 'all' || selectedSector === s.id).map(sector => {
-                            const users = usersBySector[sector.id] || [];
-                            if (users.length === 0) return null;
+                    ) : (
+                        filteredUsers.map(user => {
+                            const sectorName = office.sectors.find(s => s.id === user.sector)?.name;
+                            const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
+                            const isCurrentUser = user.id === currentUser.id;
+
                             return (
-                                <div key={sector.id} className="animate-fade-in-up">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className={`w-3 h-3 rounded-full ${sector.color}`}></div>
-                                        <h3 className="text-slate-800 text-lg font-bold">{sector.name}</h3>
-                                        <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{users.length}</span>
+                                <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all group">
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <div className="relative">
+                                            <img
+                                                src={getUserAvatar(user)}
+                                                alt={user.name}
+                                                className="w-14 h-14 rounded-full object-cover border-2 border-slate-100"
+                                            />
+                                            <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
+                                                {user.name}
+                                                {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
+                                            </h4>
+                                            <p className="text-xs text-slate-500 truncate">{sectorName || user.sector}</p>
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                    {STATUS_CONFIG[user.status].label}
+                                                </span>
+                                                {roomName && (
+                                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                        <Monitor size={10} /> {roomName}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"}>
-                                        {users.map(user => (
-                                            viewMode === 'grid' ? <UserCard key={user.id} user={user} sectorName={sector.name} roomName={user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined} onStartCall={() => onStartCall(user)} onKnock={() => onKnock(user)} onOpenChat={() => handleOpenChatWithUser(user)} /> : <UserListItem key={user.id} user={user} sectorName={sector.name} roomName={user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined} onStartCall={() => onStartCall(user)} onKnock={() => onKnock(user)} onOpenChat={() => handleOpenChatWithUser(user)} />
-                                        ))}
+
+                                    {user.statusMessage && (
+                                        <p className="text-xs text-slate-500 italic mb-3 px-2 py-1 bg-slate-50 rounded line-clamp-1">
+                                            "{user.statusMessage}"
+                                        </p>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleOpenChatWithUser(user)}
+                                            className="p-2 rounded-lg bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                            title="Enviar mensagem"
+                                        >
+                                            <MessageSquare size={16}/>
+                                        </button>
+                                        {!isCurrentUser && (
+                                            <button
+                                                onClick={() => onStartCall(user)}
+                                                className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 font-semibold text-sm shadow-sm"
+                                                title="Entrar em chamada"
+                                            >
+                                                <Video size={16}/> Entrar
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })
-                     )}
+                    )}
                 </div>
             </section>
         </div>
