@@ -613,114 +613,94 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             </section>
 
             <section className="animate-fade-in-up animation-delay-200 pb-20">
-                <div className="flex flex-col gap-4 mb-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3 flex-wrap">
                         <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                             <Users className="text-indigo-600" size={24} />
                             Colaboradores
-                            <span className="text-sm font-normal text-slate-500">({office.users.length} no escritório)</span>
+                            <span className="text-sm font-normal text-slate-500">({office.users.length})</span>
                         </h3>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="text"
-                                placeholder="Buscar colaborador..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+
+                        {/* Filtros na mesma linha */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setSelectedSector('all')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    selectedSector === 'all'
+                                        ? 'bg-slate-800 text-white'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                            >
+                                Todos ({office.users.length})
+                            </button>
+
+                            {office.sectors.map(sector => {
+                                const sectorUsers = office.users.filter(u => u.sector === sector.id);
+                                const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
+
+                                return (
+                                    <button
+                                        key={sector.id}
+                                        onClick={() => setSelectedSector(sector.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                            selectedSector === sector.id
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${sector.color}`}></span>
+                                        {sector.name} ({sectorUsers.length})
+                                        <span className={`ml-0.5 ${selectedSector === sector.id ? 'text-emerald-200' : 'text-emerald-600'}`}>
+                                            {onlineCount}↑
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Filtros por setor */}
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            onClick={() => setSelectedSector('all')}
-                            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm flex items-center gap-2 ${
-                                selectedSector === 'all'
-                                    ? 'bg-slate-800 text-white ring-2 ring-slate-400'
-                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
-                        >
-                            <Users size={16} />
-                            <span>Todos</span>
-                            <div className="flex items-center gap-1 ml-1">
-                                <span className="bg-slate-700 text-white text-xs px-2 py-0.5 rounded-full">
-                                    {office.users.length}
-                                </span>
-                                <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                    {office.users.filter(u => u.status !== 'offline').length}
-                                </span>
-                            </div>
-                        </button>
-
-                        {office.sectors.map(sector => {
-                            const sectorUsers = office.users.filter(u => u.sector === sector.id);
-                            const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
-
-                            return (
-                                <button
-                                    key={sector.id}
-                                    onClick={() => setSelectedSector(sector.id)}
-                                    className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm flex items-center gap-2 ${
-                                        selectedSector === sector.id
-                                            ? 'bg-indigo-600 text-white ring-2 ring-indigo-300'
-                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className={`w-2.5 h-2.5 rounded-full ${sector.color}`}></span>
-                                    <span>{sector.name}</span>
-                                    <div className="flex items-center gap-1 ml-1">
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                            selectedSector === sector.id
-                                                ? 'bg-indigo-700 text-white'
-                                                : 'bg-slate-100 text-slate-700'
-                                        }`}>
-                                            {sectorUsers.length}
-                                        </span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                            selectedSector === sector.id
-                                                ? 'bg-emerald-500 text-white'
-                                                : 'bg-emerald-100 text-emerald-700'
-                                        }`}>
-                                            {onlineCount}
-                                        </span>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <input
+                        type="text"
+                        placeholder="Buscar colaborador..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
                 </div>
 
-                {/* Listagem de colaboradores */}
-                {selectedSector === 'all' ? (
-                    // Mostrar todos os setores agrupados
-                    <div className="space-y-8">
-                        {office.sectors.map(sector => {
+                {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
+                <div className="space-y-6">
+                    {selectedSector === 'all' ? (
+                        // Mostrar todos os setores com divisores visuais
+                        office.sectors.map((sector, sectorIndex) => {
                             const sectorUsers = filteredUsers.filter(u => u.sector === sector.id);
                             if (sectorUsers.length === 0) return null;
 
                             const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
 
                             return (
-                                <div key={sector.id} className="animate-fade-in-up">
-                                    <div className="flex items-center gap-3 mb-4">
+                                <div key={sector.id}>
+                                    {/* Divisor de setor */}
+                                    <div className="flex items-center gap-3 mb-4 pb-2 border-b-2 border-slate-200">
                                         <div className={`w-3 h-3 rounded-full ${sector.color}`}></div>
-                                        <h4 className="text-lg font-bold text-slate-800">{sector.name}</h4>
-                                        <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md">
-                                            {sectorUsers.length} total
+                                        <h4 className="text-base font-bold text-slate-800">{sector.name}</h4>
+                                        <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                                            {sectorUsers.length}
                                         </span>
-                                        <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
+                                        <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
                                             {onlineCount} online
                                         </span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {/* Grid de usuários do setor */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                                         {sectorUsers.map(user => {
                                             const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                             const isCurrentUser = user.id === currentUser.id;
+                                            const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                             return (
-                                                <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all group">
+                                                <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all">
                                                     <div className="flex items-start gap-3 mb-3">
                                                         <div className="relative">
                                                             <img
@@ -731,7 +711,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                             <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
+                                                            <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-1">
                                                                 {user.name}
                                                                 {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
                                                             </h4>
@@ -764,13 +744,29 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                             <MessageSquare size={16}/>
                                                         </button>
                                                         {!isCurrentUser && (
-                                                            <button
-                                                                onClick={() => onStartCall(user)}
-                                                                className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 font-semibold text-sm shadow-sm"
-                                                                title="Entrar em chamada"
-                                                            >
-                                                                <Video size={16}/> Entrar
-                                                            </button>
+                                                            <>
+                                                                <button
+                                                                    onClick={() => onStartCall(user)}
+                                                                    className="p-2 rounded-lg bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-600 transition-colors"
+                                                                    title="Ligar para o colaborador"
+                                                                >
+                                                                    <Phone size={16}/>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (isBusy) {
+                                                                            onStartCall(user);
+                                                                        } else {
+                                                                            // Entrar direto sem ligar - abrir modal de vídeo
+                                                                            onStartCall(user);
+                                                                        }
+                                                                    }}
+                                                                    className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 font-semibold text-sm shadow-sm"
+                                                                    title={isBusy ? "Usuário ocupado - ligar" : "Entrar em chamada direta"}
+                                                                >
+                                                                    <LogIn size={16}/> {isBusy ? 'Ligar' : 'Entrar'}
+                                                                </button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
@@ -779,99 +775,128 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                     </div>
                                 </div>
                             );
-                        })}
-
-                        {filteredUsers.length === 0 && (
-                            <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
-                                <Users size={48} className="mb-4 opacity-20" />
-                                <p>Nenhum colaborador encontrado</p>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    // Mostrar apenas o setor selecionado
-                    <div>
-                        {(() => {
+                        })
+                    ) : (
+                        // Mostrar apenas setor selecionado
+                        (() => {
                             const sector = office.sectors.find(s => s.id === selectedSector);
                             const sectorUsers = filteredUsers.filter(u => u.sector === selectedSector);
 
                             if (!sector) return null;
 
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {sectorUsers.length === 0 ? (
-                                        <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
-                                            <Users size={48} className="mb-4 opacity-20" />
-                                            <p>Nenhum colaborador encontrado neste setor</p>
-                                        </div>
-                                    ) : (
-                                        sectorUsers.map(user => {
-                                            const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
-                                            const isCurrentUser = user.id === currentUser.id;
+                            const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
 
-                                            return (
-                                                <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all group">
-                                                    <div className="flex items-start gap-3 mb-3">
-                                                        <div className="relative">
-                                                            <img
-                                                                src={getUserAvatar(user)}
-                                                                alt={user.name}
-                                                                className="w-14 h-14 rounded-full object-cover border-2 border-slate-100"
-                                                            />
-                                                            <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
-                                                                {user.name}
-                                                                {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
-                                                            </h4>
-                                                            <p className="text-xs text-slate-500 truncate">{user.jobTitle || sector.name}</p>
-                                                            <div className="flex items-center gap-1 mt-1">
-                                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
-                                                                    {STATUS_CONFIG[user.status].label}
-                                                                </span>
-                                                                {roomName && (
-                                                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                        <Monitor size={10} /> {roomName}
+                            return (
+                                <div>
+                                    <div className="flex items-center gap-3 mb-4 pb-2 border-b-2 border-indigo-200">
+                                        <div className={`w-3 h-3 rounded-full ${sector.color}`}></div>
+                                        <h4 className="text-base font-bold text-slate-800">{sector.name}</h4>
+                                        <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                                            {sectorUsers.length}
+                                        </span>
+                                        <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
+                                            {onlineCount} online
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                        {sectorUsers.length === 0 ? (
+                                            <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
+                                                <Users size={48} className="mb-4 opacity-20" />
+                                                <p>Nenhum colaborador encontrado</p>
+                                            </div>
+                                        ) : (
+                                            sectorUsers.map(user => {
+                                                const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
+                                                const isCurrentUser = user.id === currentUser.id;
+                                                const isBusy = user.status === 'busy' || user.status === 'in_meeting';
+
+                                                return (
+                                                    <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all">
+                                                        <div className="flex items-start gap-3 mb-3">
+                                                            <div className="relative">
+                                                                <img
+                                                                    src={getUserAvatar(user)}
+                                                                    alt={user.name}
+                                                                    className="w-14 h-14 rounded-full object-cover border-2 border-slate-100"
+                                                                />
+                                                                <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color}`}></span>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-1">
+                                                                    {user.name}
+                                                                    {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
+                                                                </h4>
+                                                                <p className="text-xs text-slate-500 truncate">{user.jobTitle || sector.name}</p>
+                                                                <div className="flex items-center gap-1 mt-1">
+                                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                                        {STATUS_CONFIG[user.status].label}
                                                                     </span>
-                                                                )}
+                                                                    {roomName && (
+                                                                        <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                            <Monitor size={10} /> {roomName}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    {user.statusMessage && (
-                                                        <p className="text-xs text-slate-500 italic mb-3 px-2 py-1 bg-slate-50 rounded line-clamp-1">
-                                                            "{user.statusMessage}"
-                                                        </p>
-                                                    )}
-
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => handleOpenChatWithUser(user)}
-                                                            className="p-2 rounded-lg bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                                            title="Enviar mensagem"
-                                                        >
-                                                            <MessageSquare size={16}/>
-                                                        </button>
-                                                        {!isCurrentUser && (
-                                                            <button
-                                                                onClick={() => onStartCall(user)}
-                                                                className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 font-semibold text-sm shadow-sm"
-                                                                title="Entrar em chamada"
-                                                            >
-                                                                <Video size={16}/> Entrar
-                                                            </button>
+                                                        {user.statusMessage && (
+                                                            <p className="text-xs text-slate-500 italic mb-3 px-2 py-1 bg-slate-50 rounded line-clamp-1">
+                                                                "{user.statusMessage}"
+                                                            </p>
                                                         )}
+
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleOpenChatWithUser(user)}
+                                                                className="p-2 rounded-lg bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                                title="Enviar mensagem"
+                                                            >
+                                                                <MessageSquare size={16}/>
+                                                            </button>
+                                                            {!isCurrentUser && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => onStartCall(user)}
+                                                                        className="p-2 rounded-lg bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-600 transition-colors"
+                                                                        title="Ligar para o colaborador"
+                                                                    >
+                                                                        <Phone size={16}/>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (isBusy) {
+                                                                                onStartCall(user);
+                                                                            } else {
+                                                                                onStartCall(user);
+                                                                            }
+                                                                        }}
+                                                                        className="flex-1 py-2 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 font-semibold text-sm shadow-sm"
+                                                                        title={isBusy ? "Usuário ocupado - ligar" : "Entrar em chamada direta"}
+                                                                    >
+                                                                        <LogIn size={16}/> {isBusy ? 'Ligar' : 'Entrar'}
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
+                                                );
+                                            })
+                                        )}
+                                    </div>
                                 </div>
                             );
-                        })()}
-                    </div>
-                )}
+                        })()
+                    )}
+
+                    {filteredUsers.length === 0 && (
+                        <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-400">
+                            <Users size={48} className="mb-4 opacity-20" />
+                            <p>Nenhum colaborador encontrado</p>
+                        </div>
+                    )}
+                </div>
             </section>
         </div>
       </main>
