@@ -156,7 +156,8 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
 
     // Cleanup
     return () => {
-      console.log('[Socket] Cleanup: disconnecting');
+      console.log('[Socket] Cleanup called! Stack trace:', new Error().stack);
+      console.log('[Socket] forceReconnectKey:', forceReconnectKey);
       socket.disconnect();
       socketRef.current = null;
     };
