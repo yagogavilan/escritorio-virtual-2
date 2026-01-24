@@ -28,9 +28,18 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Store callbacks in refs to avoid recreating socket on every callback change
+  const callbacksRef = useRef(options);
+
+  // Always update callbacks ref (doesn't cause re-render)
+  callbacksRef.current = options;
+
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      console.log('[Socket] No token found, skipping connection');
+      return;
+    }
 
     console.log('[Socket] Connecting to:', SOCKET_URL, 'with path: /api/socket.io');
 
@@ -38,6 +47,9 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
       path: '/api/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     socketRef.current = socket;
@@ -47,8 +59,8 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
       setIsConnected(true);
     });
 
-    socket.on('disconnect', () => {
-      console.log('[Socket] Disconnected');
+    socket.on('disconnect', (reason) => {
+      console.log('[Socket] Disconnected. Reason:', reason);
       setIsConnected(false);
     });
 
@@ -57,110 +69,98 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
     });
 
     // Initial state
-    if (options.onUsersInitialState) {
-      socket.on('users:initial_state', (data) => {
-        console.log('[Socket] Received initial state:', data);
-        options.onUsersInitialState?.(data);
-      });
-    }
+    socket.on('users:initial_state', (data) => {
+      console.log('[Socket] Received initial state:', data);
+      callbacksRef.current.onUsersInitialState?.(data);
+    });
 
     // Presence events
-    if (options.onUserOnline) {
-      socket.on('user:online', (data) => {
-        console.log('[Socket] User came online:', data);
-        options.onUserOnline?.(data);
-      });
-    }
-    if (options.onUserOffline) {
-      socket.on('user:offline', (data) => {
-        console.log('[Socket] User went offline:', data);
-        options.onUserOffline?.(data);
-      });
-    }
-    if (options.onUserStatusChanged) {
-      socket.on('user:status_changed', (data) => {
-        console.log('[Socket] User status changed:', data);
-        options.onUserStatusChanged?.(data);
-      });
-    }
+    socket.on('user:online', (data) => {
+      console.log('[Socket] User came online:', data);
+      callbacksRef.current.onUserOnline?.(data);
+    });
+
+    socket.on('user:offline', (data) => {
+      console.log('[Socket] User went offline:', data);
+      callbacksRef.current.onUserOffline?.(data);
+    });
+
+    socket.on('user:status_changed', (data) => {
+      console.log('[Socket] User status changed:', data);
+      callbacksRef.current.onUserStatusChanged?.(data);
+    });
 
     // Room events
-    if (options.onRoomUserJoined) {
-      socket.on('room:user_joined', options.onRoomUserJoined);
-    }
-    if (options.onRoomUserLeft) {
-      socket.on('room:user_left', options.onRoomUserLeft);
-    }
-    if (options.onRoomKnocked) {
-      socket.on('room:knocked', options.onRoomKnocked);
-    }
+    socket.on('room:user_joined', (data) => {
+      console.log('[Socket] User joined room:', data);
+      callbacksRef.current.onRoomUserJoined?.(data);
+    });
+
+    socket.on('room:user_left', (data) => {
+      console.log('[Socket] User left room:', data);
+      callbacksRef.current.onRoomUserLeft?.(data);
+    });
+
+    socket.on('room:knocked', (data) => {
+      console.log('[Socket] Room knocked:', data);
+      callbacksRef.current.onRoomKnocked?.(data);
+    });
 
     // Chat events
-    if (options.onChatNewMessage) {
-      socket.on('chat:new_message', options.onChatNewMessage);
-    }
-    if (options.onChatTyping) {
-      socket.on('chat:typing', options.onChatTyping);
-    }
+    socket.on('chat:new_message', (data) => {
+      callbacksRef.current.onChatNewMessage?.(data);
+    });
+
+    socket.on('chat:typing', (data) => {
+      callbacksRef.current.onChatTyping?.(data);
+    });
 
     // Task events
-    if (options.onTaskCreated) {
-      socket.on('task:created', options.onTaskCreated);
-    }
-    if (options.onTaskUpdated) {
-      socket.on('task:updated', options.onTaskUpdated);
-    }
-    if (options.onTaskAssigned) {
-      socket.on('task:assigned', options.onTaskAssigned);
-    }
-    if (options.onTaskMentioned) {
-      socket.on('task:mentioned', options.onTaskMentioned);
-    }
+    socket.on('task:created', (data) => {
+      callbacksRef.current.onTaskCreated?.(data);
+    });
+
+    socket.on('task:updated', (data) => {
+      callbacksRef.current.onTaskUpdated?.(data);
+    });
+
+    socket.on('task:assigned', (data) => {
+      callbacksRef.current.onTaskAssigned?.(data);
+    });
+
+    socket.on('task:mentioned', (data) => {
+      callbacksRef.current.onTaskMentioned?.(data);
+    });
 
     // Announcement events
-    if (options.onAnnouncementNew) {
-      socket.on('announcement:new', options.onAnnouncementNew);
-    }
+    socket.on('announcement:new', (data) => {
+      callbacksRef.current.onAnnouncementNew?.(data);
+    });
 
     // Call events
-    if (options.onCallIncoming) {
-      socket.on('call:incoming', options.onCallIncoming);
-    }
-    if (options.onCallAccepted) {
-      socket.on('call:accepted', options.onCallAccepted);
-    }
-    if (options.onCallRejected) {
-      socket.on('call:rejected', options.onCallRejected);
-    }
-    if (options.onCallEnded) {
-      socket.on('call:ended', options.onCallEnded);
-    }
+    socket.on('call:incoming', (data) => {
+      callbacksRef.current.onCallIncoming?.(data);
+    });
 
+    socket.on('call:accepted', (data) => {
+      callbacksRef.current.onCallAccepted?.(data);
+    });
+
+    socket.on('call:rejected', (data) => {
+      callbacksRef.current.onCallRejected?.(data);
+    });
+
+    socket.on('call:ended', (data) => {
+      callbacksRef.current.onCallEnded?.(data);
+    });
+
+    // Cleanup
     return () => {
+      console.log('[Socket] Cleanup: disconnecting');
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [
-    forceReconnectKey,
-    options.onUsersInitialState,
-    options.onUserOnline,
-    options.onUserOffline,
-    options.onUserStatusChanged,
-    options.onRoomUserJoined,
-    options.onRoomUserLeft,
-    options.onRoomKnocked,
-    options.onChatNewMessage,
-    options.onChatTyping,
-    options.onTaskCreated,
-    options.onTaskUpdated,
-    options.onTaskAssigned,
-    options.onTaskMentioned,
-    options.onAnnouncementNew,
-    options.onCallIncoming,
-    options.onCallAccepted,
-    options.onCallRejected,
-    options.onCallEnded,
-  ]);
+  }, [forceReconnectKey]); // Only reconnect when forceReconnectKey changes
 
   // Emit functions
   const changeStatus = useCallback((status: string, statusMessage?: string) => {

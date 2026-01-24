@@ -50,49 +50,64 @@ export async function setupWebSocket(io: Server) {
   io.on('connection', async (socket: AuthenticatedSocket) => {
     const userId = socket.userId!;
     const officeId = socket.officeId;
-    console.log(`User ${userId} connected (office: ${officeId})`);
+    console.log(`[WebSocket] User ${userId} connected (office: ${officeId}, socket: ${socket.id})`);
 
-    // Track user connection
-    if (!onlineUsers.has(userId)) {
-      onlineUsers.set(userId, new Set());
+    try {
+      // Track user connection
+      if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+      }
+      onlineUsers.get(userId)!.add(socket.id);
+      console.log(`[WebSocket] Tracking: User ${userId} now has ${onlineUsers.get(userId)!.size} connection(s)`);
+
+      // Update user status to online
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: 'online' },
+      });
+      console.log(`[WebSocket] Database: User ${userId} status updated to online`);
+
+      // Join user's personal room
+      socket.join(`user:${userId}`);
+
+      // Join office room for isolated broadcasting
+      if (officeId) {
+        socket.join(`office:${officeId}`);
+        console.log(`[WebSocket] User ${userId} joined office room: office:${officeId}`);
+      }
+
+      // Get all users in the same office (including current user)
+      const allOfficeUsers = await prisma.user.findMany({
+        where: {
+          officeId: officeId,
+          status: { not: 'offline' },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
+          statusMessage: true,
+          currentRoomId: true,
+        },
+      });
+
+      console.log(`[WebSocket] Found ${allOfficeUsers.length} online users in office ${officeId}:`,
+        allOfficeUsers.map(u => `${u.name} (${u.email})`));
+
+      // Send initial state to the connecting user
+      const otherUsers = allOfficeUsers.filter(u => u.id !== userId);
+      socket.emit('users:initial_state', { users: otherUsers });
+      console.log(`[WebSocket] Sent initial state to ${userId}: ${otherUsers.length} other users`);
+
+      // Broadcast user online to same office only
+      if (officeId) {
+        socket.to(`office:${officeId}`).emit('user:online', { userId });
+        console.log(`[WebSocket] Broadcast user:online for ${userId} to office ${officeId}`);
+      }
+    } catch (error) {
+      console.error(`[WebSocket] Error during connection setup for user ${userId}:`, error);
     }
-    onlineUsers.get(userId)!.add(socket.id);
-
-    // Update user status to online
-    await prisma.user.update({
-      where: { id: userId },
-      data: { status: 'online' },
-    });
-
-    // Join user's personal room
-    socket.join(`user:${userId}`);
-
-    // Join office room for isolated broadcasting
-    if (officeId) {
-      socket.join(`office:${officeId}`);
-    }
-
-    // Broadcast user online to same office only
-    if (officeId) {
-      socket.to(`office:${officeId}`).emit('user:online', { userId });
-    }
-
-    // Send initial state of online users in the same office
-    const onlineOfficeUsers = await prisma.user.findMany({
-      where: {
-        officeId: officeId,
-        status: { not: 'offline' },
-        id: { not: userId }, // Exclude current user
-      },
-      select: {
-        id: true,
-        status: true,
-        statusMessage: true,
-        currentRoomId: true,
-      },
-    });
-
-    socket.emit('users:initial_state', { users: onlineOfficeUsers });
 
     // --- PRESENCE EVENTS ---
 
@@ -325,12 +340,13 @@ export async function setupWebSocket(io: Server) {
 
     // --- DISCONNECT ---
 
-    socket.on('disconnect', async () => {
-      console.log(`User ${userId} disconnected`);
+    socket.on('disconnect', async (reason) => {
+      console.log(`[WebSocket] User ${userId} disconnected. Reason: ${reason}, Socket: ${socket.id}`);
 
       const userSockets = onlineUsers.get(userId);
       if (userSockets) {
         userSockets.delete(socket.id);
+        console.log(`[WebSocket] User ${userId} now has ${userSockets.size} connection(s) remaining`);
 
         // If no more connections, set user offline
         if (userSockets.size === 0) {
