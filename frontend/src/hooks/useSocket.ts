@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface UseSocketOptions {
   onUsersInitialState?: (data: { users: Array<{ id: string; status: string; statusMessage?: string; currentRoomId?: string | null }> }) => void;
@@ -32,6 +32,8 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    console.log('[Socket] Connecting to:', SOCKET_URL, 'with path: /api/socket.io');
+
     const socket = io(SOCKET_URL, {
       path: '/api/socket.io',
       auth: { token },
@@ -41,33 +43,45 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('[Socket] Connected successfully! Socket ID:', socket.id);
       setIsConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('[Socket] Disconnected');
       setIsConnected(false);
     });
 
     socket.on('error', (error: { message: string }) => {
-      console.error('Socket error:', error.message);
+      console.error('[Socket] Error:', error.message);
     });
 
     // Initial state
     if (options.onUsersInitialState) {
-      socket.on('users:initial_state', options.onUsersInitialState);
+      socket.on('users:initial_state', (data) => {
+        console.log('[Socket] Received initial state:', data);
+        options.onUsersInitialState?.(data);
+      });
     }
 
     // Presence events
     if (options.onUserOnline) {
-      socket.on('user:online', options.onUserOnline);
+      socket.on('user:online', (data) => {
+        console.log('[Socket] User came online:', data);
+        options.onUserOnline?.(data);
+      });
     }
     if (options.onUserOffline) {
-      socket.on('user:offline', options.onUserOffline);
+      socket.on('user:offline', (data) => {
+        console.log('[Socket] User went offline:', data);
+        options.onUserOffline?.(data);
+      });
     }
     if (options.onUserStatusChanged) {
-      socket.on('user:status_changed', options.onUserStatusChanged);
+      socket.on('user:status_changed', (data) => {
+        console.log('[Socket] User status changed:', data);
+        options.onUserStatusChanged?.(data);
+      });
     }
 
     // Room events

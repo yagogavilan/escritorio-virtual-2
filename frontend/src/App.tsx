@@ -48,6 +48,7 @@ export default function App() {
 
   // Socket handlers
   const handleUsersInitialState = useCallback((data: { users: Array<{ id: string; status: string; statusMessage?: string; currentRoomId?: string | null }> }) => {
+    console.log('[App] Handling initial state:', data);
     setOfficeData(prev => ({
       ...prev,
       users: prev.users.map(u => {
@@ -66,6 +67,7 @@ export default function App() {
   }, []);
 
   const handleUserOnline = useCallback((data: { userId: string }) => {
+    console.log('[App] User came online:', data.userId);
     setOfficeData(prev => ({
       ...prev,
       users: prev.users.map(u => u.id === data.userId ? { ...u, status: 'online' as UserStatus } : u)
@@ -73,6 +75,7 @@ export default function App() {
   }, []);
 
   const handleUserOffline = useCallback((data: { userId: string }) => {
+    console.log('[App] User went offline:', data.userId);
     setOfficeData(prev => ({
       ...prev,
       users: prev.users.map(u => u.id === data.userId ? { ...u, status: 'offline' as UserStatus } : u)
