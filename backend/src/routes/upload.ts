@@ -43,6 +43,43 @@ export async function uploadRoutes(fastify: FastifyInstance) {
     return { url, filename };
   });
 
+  // Upload office logo
+  fastify.post('/logo', {
+    preHandler: [(fastify as any).authenticate],
+  }, async (request, reply) => {
+    const currentUser = request.user as { role: string };
+
+    // Only admin or master can upload logos
+    if (!['admin', 'master'].includes(currentUser.role)) {
+      return reply.status(403).send({ error: 'Acesso negado.' });
+    }
+
+    const data = await request.file();
+
+    if (!data) {
+      return reply.status(400).send({ error: 'No file uploaded' });
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(data.mimetype)) {
+      return reply.status(400).send({ error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WEBP, SVG' });
+    }
+
+    // Generate unique filename
+    const ext = path.extname(data.filename) || '.png';
+    const filename = `logo-${crypto.randomBytes(12).toString('hex')}${ext}`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+
+    // Save file
+    await pipeline(data.file, createWriteStream(filepath));
+
+    // Return the URL
+    const url = `/api/uploads/${filename}`;
+
+    return { url, filename };
+  });
+
   // Generic file upload (for attachments, etc.)
   fastify.post('/file', {
     preHandler: [(fastify as any).authenticate],

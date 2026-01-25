@@ -19,6 +19,8 @@ import { taskRoutes } from './routes/tasks.js';
 import { announcementRoutes } from './routes/announcements.js';
 import { uploadRoutes } from './routes/upload.js';
 import { debugRoutes } from './routes/debug.js';
+import { billingRoutes } from './routes/billing.js';
+import { analyticsRoutes } from './routes/analytics.js';
 import { setupWebSocket } from './websocket/index.js';
 
 const UPLOAD_DIR = '/app/uploads';
@@ -79,6 +81,8 @@ await fastify.register(channelRoutes, { prefix: '/api/channels' });
 await fastify.register(taskRoutes, { prefix: '/api/tasks' });
 await fastify.register(announcementRoutes, { prefix: '/api/announcements' });
 await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+await fastify.register(billingRoutes, { prefix: '/api/billing' });
+await fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
 await fastify.register(debugRoutes, { prefix: '/api/debug' });
 
 // Start server

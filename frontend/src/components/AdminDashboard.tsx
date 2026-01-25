@@ -6,25 +6,8 @@ import {
   Users, Building, Activity, DollarSign, Settings, LogOut, Plus, Search,
   MoreHorizontal, ArrowUpRight, CheckCircle, CreditCard, Download, X, AlertCircle, UserCircle, Edit, Trash2
 } from 'lucide-react';
-import { officeApi, usersApi } from '../api/client';
+import { officeApi, usersApi, analyticsApi, billingApi } from '../api/client';
 import { Office, User } from '../types';
-
-const dataActivity = [
-  { name: 'Mon', hours: 400, meetings: 24 },
-  { name: 'Tue', hours: 300, meetings: 18 },
-  { name: 'Wed', hours: 550, meetings: 35 },
-  { name: 'Thu', hours: 480, meetings: 28 },
-  { name: 'Fri', hours: 390, meetings: 20 },
-  { name: 'Sat', hours: 50, meetings: 2 },
-  { name: 'Sun', hours: 30, meetings: 1 },
-];
-
-const dataSectors = [
-  { name: 'Tech', engagement: 85 },
-  { name: 'Sales', engagement: 92 },
-  { name: 'HR', engagement: 60 },
-  { name: 'Mkt', engagement: 74 },
-];
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -68,11 +51,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const invoices = [
-    { id: '#INV-2023-001', date: 'Oct 1, 2023', amount: '$2,400.00', status: 'Paid' },
-    { id: '#INV-2023-002', date: 'Nov 1, 2023', amount: '$2,400.00', status: 'Paid' },
-    { id: '#INV-2023-003', date: 'Dec 1, 2023', amount: '$2,650.00', status: 'Pending' },
-  ];
+  // Analytics & Billing States
+  const [analytics, setAnalytics] = useState<any>({
+    stats: { totalOffices: 0, totalUsers: 0, totalOnlineUsers: 0, totalRooms: 0 },
+    revenue: { mrr: 0, currentMonth: { confirmed: 0, pending: 0 } },
+    loginActivity: [],
+    engagementBySector: [],
+  });
+  const [billingPlans, setBillingPlans] = useState<any[]>([]);
+  const [billingSummary, setBillingSummary] = useState<any>(null);
 
   // Load data on component mount
   useEffect(() => {
@@ -89,41 +76,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
       const officesData = officesResponse.data.map((office: any) => ({
         id: office.id,
         name: office.name,
-        users: 0, // Will be updated when loading users
+        users: office.stats?.users || 0,
         status: 'Active',
         plan: 'Enterprise',
         logo: office.logo,
         primaryColor: office.primaryColor,
-        workingHoursEnabled: office.workingHoursEnabled,
-        workingHoursStart: office.workingHoursStart,
-        workingHoursEnd: office.workingHoursEnd,
+        workingHoursEnabled: office.workingHours?.enabled,
+        workingHoursStart: office.workingHours?.start,
+        workingHoursEnd: office.workingHours?.end,
       }));
 
       // Load users
       const usersResponse = await usersApi.getAll();
       const usersData = usersResponse.data;
 
-      // Count users per office
-      const userCounts: Record<string, number> = {};
-      usersData.forEach((user: User) => {
-        if (user.officeId) {
-          userCounts[user.officeId] = (userCounts[user.officeId] || 0) + 1;
-        }
-      });
-
-      // Update offices with user counts
-      const officesWithCounts = officesData.map((office: OfficeData) => ({
-        ...office,
-        users: userCounts[office.id] || 0,
-      }));
-
-      setOffices(officesWithCounts);
+      setOffices(officesData);
       setUsers(usersData);
+
+      // Load analytics data
+      await loadAnalytics();
+
+      // Load billing data
+      await loadBilling();
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError(err.response?.data?.message || 'Erro ao carregar dados');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const [stats, revenue, loginActivity, engagementBySector] = await Promise.all([
+        analyticsApi.getStats(),
+        analyticsApi.getRevenue(),
+        analyticsApi.getLoginActivity({ period: 'week' }),
+        analyticsApi.getEngagementBySector(),
+      ]);
+
+      setAnalytics({
+        stats: stats.data,
+        revenue: revenue.data,
+        loginActivity: loginActivity.data,
+        engagementBySector: engagementBySector.data,
+      });
+    } catch (err) {
+      console.error('Error loading analytics:', err);
+    }
+  };
+
+  const loadBilling = async () => {
+    try {
+      const [plans, summary] = await Promise.all([
+        billingApi.getPlans(),
+        billingApi.getSummary(),
+      ]);
+
+      setBillingPlans(plans.data);
+      setBillingSummary(summary.data);
+    } catch (err) {
+      console.error('Error loading billing:', err);
     }
   };
 
@@ -308,10 +321,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
               {/* Metrics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { label: 'Active Offices', value: '12', icon: Building, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Total Users', value: '1,248', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                  { label: 'Avg Online Time', value: '5h 32m', icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
-                  { label: 'Monthly Revenue', value: '$45.2k', icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { label: 'Active Offices', value: analytics.stats.totalOffices.toString(), icon: Building, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Total Users', value: analytics.stats.totalUsers.toString(), icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                  { label: 'Users Online', value: analytics.stats.totalOnlineUsers.toString(), icon: Activity, color: 'text-green-600', bg: 'bg-green-50' },
+                  { label: 'MRR', value: `$${(analytics.revenue.mrr || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-purple-600', bg: 'bg-purple-50' },
                 ].map((stat, idx) => (
                   <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow flex items-center gap-5">
                     <div className={`p-4 rounded-xl ${stat.bg} ${stat.color}`}>
@@ -328,16 +341,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
               {/* Charts Row */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 h-96">
-                  <h3 className="text-lg font-bold text-slate-800 mb-6">Weekly Platform Activity</h3>
+                  <h3 className="text-lg font-bold text-slate-800 mb-6">Login Activity (Last 7 Days)</h3>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dataActivity} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
+                    <LineChart data={analytics.loginActivity.map((item: any) => ({
+                      name: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
+                      logins: item.logins
+                    }))} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                       <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                      <Legend verticalAlign="top" height={36}/>
-                      <Line type="monotone" dataKey="hours" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey="meetings" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="logins" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -345,7 +359,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
                 <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 h-96">
                   <h3 className="text-lg font-bold text-slate-800 mb-6">Engagement by Sector</h3>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dataSectors} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
+                    <BarChart data={analytics.engagementBySector.map((sector: any) => ({
+                      name: sector.sectorName,
+                      engagement: sector.engagementScore
+                    }))} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />

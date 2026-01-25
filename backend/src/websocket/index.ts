@@ -67,6 +67,16 @@ export async function setupWebSocket(io: Server) {
       });
       console.log(`[WebSocket] Database: User ${userId} status updated to online`);
 
+      // Log activity
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          officeId,
+          action: 'login',
+          metadata: { status: 'online', socketId: socket.id },
+        },
+      });
+
       // Join user's personal room
       socket.join(`user:${userId}`);
 
@@ -117,6 +127,16 @@ export async function setupWebSocket(io: Server) {
         data: {
           status: data.status as any,
           statusMessage: data.statusMessage,
+        },
+      });
+
+      // Log activity
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          officeId,
+          action: 'status_change',
+          metadata: { status: data.status, statusMessage: data.statusMessage },
         },
       });
 
@@ -364,6 +384,16 @@ export async function setupWebSocket(io: Server) {
           await prisma.user.update({
             where: { id: userId },
             data: { status: 'offline', currentRoomId: null },
+          });
+
+          // Log activity
+          await prisma.activityLog.create({
+            data: {
+              userId,
+              officeId,
+              action: 'logout',
+              metadata: { reason, status: 'offline' },
+            },
           });
 
           // Broadcast offline only to same office

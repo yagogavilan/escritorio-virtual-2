@@ -141,4 +141,58 @@ export const uploadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  logo: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/upload/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+};
+
+// Billing API
+export const billingApi = {
+  getPlans: () => api.get('/billing/plans'),
+  getPlanByOffice: (officeId: string) => api.get(`/billing/plans/office/${officeId}`),
+  createPlan: (data: { officeId: string; pricePerUser: number; customNotes?: string }) =>
+    api.post('/billing/plans', data),
+  updatePlan: (id: string, data: { pricePerUser?: number; customNotes?: string | null }) =>
+    api.put(`/billing/plans/${id}`, data),
+  deletePlan: (id: string) => api.delete(`/billing/plans/${id}`),
+
+  getPaymentsByPlan: (planId: string) => api.get(`/billing/payments/plan/${planId}`),
+  createPayment: (data: {
+    billingPlanId: string;
+    month: number;
+    year: number;
+    amount: number;
+    userCount: number;
+    status?: 'pending' | 'confirmed' | 'overdue';
+    notes?: string;
+  }) => api.post('/billing/payments', data),
+  updatePayment: (id: string, data: {
+    status?: 'pending' | 'confirmed' | 'overdue';
+    notes?: string | null;
+  }) => api.put(`/billing/payments/${id}`, data),
+  deletePayment: (id: string) => api.delete(`/billing/payments/${id}`),
+
+  getSummary: () => api.get('/billing/summary'),
+  generateCurrentMonth: () => api.post('/billing/payments/generate-current-month'),
+};
+
+// Analytics API
+export const analyticsApi = {
+  getStats: () => api.get('/analytics/stats'),
+  getUsersByOffice: () => api.get('/analytics/users-by-office'),
+  getOnlineHours: (params?: { officeId?: string; startDate?: string; endDate?: string }) =>
+    api.get('/analytics/online-hours', { params }),
+  getRevenue: () => api.get('/analytics/revenue'),
+  getLoginActivity: (params?: { period?: 'day' | 'week' | 'month'; officeId?: string }) =>
+    api.get('/analytics/login-activity', { params }),
+  getEngagementBySector: (params?: { officeId?: string; startDate?: string; endDate?: string }) =>
+    api.get('/analytics/engagement-by-sector', { params }),
+  getActivitySummary: (params?: { startDate?: string; endDate?: string }) =>
+    api.get('/analytics/activity-summary', { params }),
+  getUsersOnline: (params?: { officeId?: string }) =>
+    api.get('/analytics/users-online', { params }),
 };

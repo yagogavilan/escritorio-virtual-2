@@ -45,6 +45,12 @@ enum ChannelType {
   group
 }
 
+enum PaymentStatus {
+  pending
+  confirmed
+  overdue
+}
+
 model User {
   id              String     @id @default(uuid())
   email           String     @unique
@@ -97,6 +103,7 @@ model Office {
   users         User[]
   sectors       Sector[]
   rooms         Room[]
+  billingPlan   BillingPlan?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -301,4 +308,53 @@ model AnnouncementRead {
   readAt         DateTime     @default(now())
 
   @@unique([userId, announcementId])
+}
+
+model BillingPlan {
+  id              String   @id @default(uuid())
+  officeId        String   @unique
+  office          Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  pricePerUser    Decimal  @default(0)
+  customNotes     String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payments        Payment[]
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  billingPlanId   String
+  billingPlan     BillingPlan   @relation(fields: [billingPlanId], references: [id], onDelete: Cascade)
+
+  month           Int
+  year            Int
+  amount          Decimal
+  userCount       Int
+  status          PaymentStatus @default(pending)
+
+  confirmedAt     DateTime?
+  confirmedBy     String?
+  notes           String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([billingPlanId, month, year])
+}
+
+model ActivityLog {
+  id              String   @id @default(uuid())
+  userId          String
+  officeId        String?
+
+  action          String
+  metadata        Json?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([officeId, createdAt])
 }
