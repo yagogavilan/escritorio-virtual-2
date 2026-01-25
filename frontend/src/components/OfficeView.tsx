@@ -121,6 +121,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState<{x: number, y: number} | null>(null);
 
   // Modals
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -362,7 +363,20 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       setEditingTask(null);
   };
 
+  const handleMouseDown = (e: React.MouseEvent, task: Task) => {
+    setDragStartPos({ x: e.clientX, y: e.clientY });
+  };
+
   const handleDragStart = (e: React.DragEvent, task: Task) => {
+    // Só permite drag se houve movimento significativo
+    if (dragStartPos) {
+      const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
+      if (!moved) {
+        e.preventDefault();
+        return;
+      }
+    }
+
     setDraggedTask(task);
     setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
@@ -375,9 +389,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
   const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
     e.preventDefault();
+    e.stopPropagation();
+
     if (!draggedTask || draggedTask.status === targetStatus) {
       setDraggedTask(null);
       setIsDragging(false);
+      setDragStartPos(null);
       return;
     }
 
@@ -399,16 +416,19 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
       setDraggedTask(null);
       setIsDragging(false);
+      setDragStartPos(null);
     } catch (error) {
       console.error('Erro ao atualizar status da tarefa:', error);
       setDraggedTask(null);
       setIsDragging(false);
+      setDragStartPos(null);
     }
   };
 
   const handleDragEnd = () => {
     setDraggedTask(null);
     setIsDragging(false);
+    setDragStartPos(null);
   };
 
   const handleTaskComment = async (taskId: string, text: string, mentions?: string[]) => {
@@ -478,12 +498,22 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       }
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (e: React.MouseEvent, task: Task) => {
       // Não abrir modal se estiver fazendo drag
       if (isDragging) return;
 
+      // Verificar se houve movimento (drag) ou foi só um clique
+      if (dragStartPos) {
+        const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
+        if (moved) {
+          setDragStartPos(null);
+          return;
+        }
+      }
+
       setEditingTask(task);
       setShowTaskModal(true);
+      setDragStartPos(null);
   };
 
   const handleNotificationClick = (notif: typeof localNotifications[0]) => {
@@ -1199,7 +1229,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                              const assignee = office.users.find(u => u.id === task.assigneeId);
                                              const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
                                              return (
-                                                 <tr key={task.id} onClick={() => handleTaskClick(task)} className="hover:bg-slate-50 cursor-pointer transition-colors group">
+                                                 <tr key={task.id} onClick={(e) => handleTaskClick(e, task)} className="hover:bg-slate-50 cursor-pointer transition-colors group">
                                                      <td className="px-6 py-4">
                                                          <p className="font-bold text-slate-800 text-sm group-hover:text-indigo-600">{task.title}</p>
                                                          <div className="flex gap-2 mt-1">
@@ -1251,7 +1281,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                   const assignee = office.users.find(u => u.id === task.assigneeId);
                                                   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
                                                   return (
-                                                     <div key={task.id} onClick={() => handleTaskClick(task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
+                                                     <div key={task.id} onMouseDown={(e) => handleMouseDown(e, task)} onClick={(e) => handleTaskClick(e, task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
                                                          <div className="flex justify-between items-start mb-3">
                                                              <div className="flex gap-1">
                                                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TASK_PRIORITY_CONFIG[task.priority].color}`}>{TASK_PRIORITY_CONFIG[task.priority].label}</span>
@@ -1309,7 +1339,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                  {day > 0 && day <= 31 && <span className={`text-xs font-bold absolute top-1 right-2 ${dayTasks.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>{day}</span>}
                                                  <div className="mt-4 space-y-1">
                                                      {dayTasks.map(t => (
-                                                         <div key={t.id} onClick={() => handleTaskClick(t)} className={`text-[10px] truncate px-1.5 py-1 rounded cursor-pointer border ${TASK_STATUS_CONFIG[t.status].bg} ${TASK_STATUS_CONFIG[t.status].color} ${TASK_STATUS_CONFIG[t.status].border} font-bold shadow-sm`}>
+                                                         <div key={t.id} onClick={(e) => handleTaskClick(e, t)} className={`text-[10px] truncate px-1.5 py-1 rounded cursor-pointer border ${TASK_STATUS_CONFIG[t.status].bg} ${TASK_STATUS_CONFIG[t.status].color} ${TASK_STATUS_CONFIG[t.status].border} font-bold shadow-sm`}>
                                                              {t.title}
                                                          </div>
                                                      ))}
