@@ -120,6 +120,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Modals
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -363,6 +364,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
     setDraggedTask(task);
+    setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -375,6 +377,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     e.preventDefault();
     if (!draggedTask || draggedTask.status === targetStatus) {
       setDraggedTask(null);
+      setIsDragging(false);
       return;
     }
 
@@ -395,14 +398,17 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       ));
 
       setDraggedTask(null);
+      setIsDragging(false);
     } catch (error) {
       console.error('Erro ao atualizar status da tarefa:', error);
       setDraggedTask(null);
+      setIsDragging(false);
     }
   };
 
   const handleDragEnd = () => {
     setDraggedTask(null);
+    setIsDragging(false);
   };
 
   const handleTaskComment = async (taskId: string, text: string, mentions?: string[]) => {
@@ -473,6 +479,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   };
 
   const handleTaskClick = (task: Task) => {
+      // Não abrir modal se estiver fazendo drag
+      if (isDragging) return;
+
       setEditingTask(task);
       setShowTaskModal(true);
   };
@@ -1242,7 +1251,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                   const assignee = office.users.find(u => u.id === task.assigneeId);
                                                   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
                                                   return (
-                                                     <div key={task.id} onClick={() => handleTaskClick(task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all group ${draggedTask?.id === task.id ? 'opacity-50' : ''}`} draggable="true" onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
+                                                     <div key={task.id} onClick={() => handleTaskClick(task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
                                                          <div className="flex justify-between items-start mb-3">
                                                              <div className="flex gap-1">
                                                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TASK_PRIORITY_CONFIG[task.priority].color}`}>{TASK_PRIORITY_CONFIG[task.priority].label}</span>
