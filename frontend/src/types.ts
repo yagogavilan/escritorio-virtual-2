@@ -7,7 +7,8 @@ export interface User {
   email: string;
   avatar: string;
   role: 'admin' | 'user' | 'master' | 'visitor';
-  sector: string;
+  sector: string; // Nome do setor
+  sectorId?: string | null; // ID do setor
   jobTitle?: string; // Cargo
   status: UserStatus;
   statusMessage?: string;

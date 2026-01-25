@@ -207,7 +207,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     const grouped: Record<string, User[]> = {};
     office.sectors.forEach(s => grouped[s.id] = []);
     filteredUsers.forEach(u => {
-      if (grouped[u.sector]) grouped[u.sector].push(u);
+      if (u.sectorId && grouped[u.sectorId]) grouped[u.sectorId].push(u);
     });
     return grouped;
   }, [filteredUsers, office.sectors]);
@@ -706,7 +706,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                             </button>
 
                             {office.sectors.map(sector => {
-                                const sectorUsers = office.users.filter(u => u.sector === sector.id);
+                                const sectorUsers = office.users.filter(u => u.sectorId === sector.id);
                                 const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
 
                                 return (
@@ -744,7 +744,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
                 <div className="space-y-6">
                     {office.sectors.map((sector) => {
-                        const sectorUsers = filteredUsers.filter(u => u.sector === sector.id);
+                        const sectorUsers = filteredUsers.filter(u => u.sectorId === sector.id);
                         if (sectorUsers.length === 0) return null;
 
                             const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
@@ -855,7 +855,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
                     {/* Usuários sem setor atribuído */}
                     {(() => {
-                        const usersWithoutSector = filteredUsers.filter(u => !u.sector || !office.sectors.find(s => s.id === u.sector));
+                        const usersWithoutSector = filteredUsers.filter(u => !u.sectorId || !office.sectors.find(s => s.id === u.sectorId));
                         if (usersWithoutSector.length === 0) return null;
 
                         return (
@@ -966,7 +966,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
                     {/* Debug: mostrar se há usuários mas não estão aparecendo */}
                     {filteredUsers.length > 0 && office.sectors.filter(s => selectedSector === 'all' || s.id === selectedSector).every(sector => {
-                        const sectorUsers = filteredUsers.filter(u => u.sector === sector.id);
+                        const sectorUsers = filteredUsers.filter(u => u.sectorId === sector.id);
                         return sectorUsers.length === 0;
                     }) && (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
@@ -1657,7 +1657,7 @@ const SettingsModal: React.FC<{
 
                                 <div className="space-y-3">
                                     {office.users.map(u => {
-                                        const sectorName = office.sectors.find(s => s.id === u.sector)?.name || 'Sem Setor';
+                                        const sectorName = office.sectors.find(s => s.id === u.sectorId)?.name || 'Sem Setor';
                                         return (
                                             <div key={u.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md transition-all group">
                                                 <div className="flex items-center gap-4">
