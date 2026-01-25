@@ -1,16 +1,16 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { 
-  Search, Bell, Settings, LogOut, Video, Monitor, Hand, 
-  MessageSquare, User as UserIcon, Lock, Users, Briefcase, ChevronDown, 
-  LogIn, Plus, X, Image as ImageIcon, Trash2, Hash, Coffee, Presentation, 
-  Armchair, LayoutTemplate, Gamepad2, Maximize2, Minimize2, PanelRight, 
+import {
+  Search, Bell, Settings, LogOut, Video, Monitor, Hand,
+  MessageSquare, User as UserIcon, Lock, Users, Briefcase, ChevronDown,
+  LogIn, Plus, X, Image as ImageIcon, Trash2, Hash, Coffee, Presentation,
+  Armchair, LayoutTemplate, Gamepad2, Maximize2, Minimize2, PanelRight,
   MoreVertical, Paperclip, Smile, Send, ChevronLeft, Phone,
   Edit2, Check, CheckCheck, UserPlus, AtSign, MessageCircle, Megaphone,
   Calendar as CalendarIcon, Clock, Music, Play, Pause, FileAudio, Upload, Square,
   ClipboardList, List, Kanban, TableProperties, AlertCircle, FileText, Download,
   History, ArrowRight, Tag, Palette, Shield, UserPlus as UserAdd, QrCode,
-  Layers, UserCog, Copy, RefreshCw
+  Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
 import { uploadApi, tasksApi, sectorsApi, authApi, channelsApi } from '../api/client';
@@ -94,6 +94,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('officeViewZoom');
+    return saved ? parseFloat(saved) : 1;
+  });
 
   // --- Sidebar & Drawer State ---
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('hidden');
@@ -141,6 +145,24 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [usersInCall, setUsersInCall] = useState<{ [userId: string]: string[] }>({}); // userId -> array of user IDs they're in call with
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'master';
+
+  // Zoom control functions
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 1.5));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.6));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+  };
+
+  // Save zoom preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('officeViewZoom', zoomLevel.toString());
+  }, [zoomLevel]);
 
   useEffect(() => {
     if (channels.length === 0 && office.users.length > 0) {
@@ -649,58 +671,85 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                     />
                 </div>
             </div>
-            <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg shadow-lg">
-                <Clock size={16} />
-                <span className="font-semibold text-xs">
-                    {new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </span>
+            <div className="flex items-center gap-3">
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-1 bg-white/80 backdrop-blur border border-slate-200/50 rounded-lg shadow-sm p-1">
+                    <button
+                        onClick={handleZoomOut}
+                        disabled={zoomLevel <= 0.6}
+                        className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-slate-600 hover:text-indigo-600"
+                        title="Diminuir zoom (-)">
+                        <ZoomOut size={16} />
+                    </button>
+                    <button
+                        onClick={handleResetZoom}
+                        className="px-2 py-1 text-[10px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all"
+                        title="Resetar zoom (100%)">
+                        {Math.round(zoomLevel * 100)}%
+                    </button>
+                    <button
+                        onClick={handleZoomIn}
+                        disabled={zoomLevel >= 1.5}
+                        className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-slate-600 hover:text-indigo-600"
+                        title="Aumentar zoom (+)">
+                        <ZoomIn size={16} />
+                    </button>
+                </div>
+
+                <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg shadow-lg">
+                    <Clock size={16} />
+                    <span className="font-semibold text-xs">
+                        {new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                </div>
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-5 scroll-smooth space-y-6 w-full">
+        <div className="flex-1 overflow-y-auto p-5 scroll-smooth w-full" style={{ transformOrigin: 'top center' }}>
+            <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center', transition: 'transform 0.2s ease-out' }} className="space-y-6">
             <section className="animate-fade-in-up">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-md shadow-indigo-200/50 animate-pulse">
-                            <Monitor className="text-white" size={12} />
+                <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-md shadow-indigo-200/50 animate-pulse">
+                            <Monitor className="text-white" size={14} />
                         </div>
                         <h3 className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                             Salas de Reunião
                         </h3>
                     </div>
                     {isAdmin && (
-                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-[10px] font-bold hover:shadow-lg hover:scale-105 transition-all shadow-md">
-                            <Plus size={10} /> Nova
+                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-[10px] font-bold hover:shadow-lg hover:scale-105 transition-all shadow-md">
+                            <Plus size={11} /> Nova
                         </button>
                     )}
                 </div>
-                <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-1.5">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2">
                     {office.rooms.map(room => {
                         const IconComponent = room.icon && ROOM_ICONS[room.icon] ? ROOM_ICONS[room.icon] : ROOM_ICONS['default'];
                         return (
-                            <div key={room.id} className="rounded-md p-1.5 border border-slate-200/40 hover:border-indigo-400/60 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group bg-white/80 backdrop-blur-md" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url(${room.backgroundImage})` : 'linear-gradient(to bottom right, white, rgba(255, 255, 255, 0.95))', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                                 <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full blur-xl opacity-20 group-hover:opacity-30 transition-opacity" style={{ backgroundColor: room.color || '#6366f1' }}></div>
-                                 <div className="absolute top-0.5 right-0.5 flex gap-0.5 z-10">
-                                     {room.isRestricted && <div className="bg-white/90 backdrop-blur-sm px-0.5 py-0.5 rounded text-[7px] font-bold text-slate-500 flex items-center gap-0.5 shadow-sm"><Lock size={6} /></div>}
+                            <div key={room.id} className="rounded-lg p-2 border border-slate-200/40 hover:border-indigo-400/60 shadow-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden group bg-white/80 backdrop-blur-md" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url(${room.backgroundImage})` : 'linear-gradient(to bottom right, white, rgba(255, 255, 255, 0.95))', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                                 <div className="absolute -top-8 -right-8 w-16 h-16 rounded-full blur-xl opacity-20 group-hover:opacity-30 transition-opacity" style={{ backgroundColor: room.color || '#6366f1' }}></div>
+                                 <div className="absolute top-1 right-1 flex gap-0.5 z-10">
+                                     {room.isRestricted && <div className="bg-white/90 backdrop-blur-sm px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 flex items-center gap-0.5 shadow-sm"><Lock size={7} /></div>}
                                      {isAdmin && (
-                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/90 backdrop-blur-sm p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={7} /></button>
+                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/90 backdrop-blur-sm p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={8} /></button>
                                      )}
                                  </div>
                                  <div className="relative z-10">
-                                     <div className="flex items-center justify-center mb-1">
-                                         <div className={`w-6 h-6 rounded-md flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={11} /> : <IconComponent size={11} />}</div>
+                                     <div className="flex items-center justify-center mb-1.5">
+                                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={13} /> : <IconComponent size={13} />}</div>
                                      </div>
-                                     <h3 className="text-[9px] font-bold text-slate-800 text-center mb-0.5 group-hover:text-indigo-600 transition-colors truncate">{room.name}</h3>
-                                     <div className="flex items-center justify-center gap-0.5 mb-1">
+                                     <h3 className="text-[10px] font-bold text-slate-800 text-center mb-1 group-hover:text-indigo-600 transition-colors truncate">{room.name}</h3>
+                                     <div className="flex items-center justify-center gap-1 mb-1.5">
                                         {room.participants.length > 0 ? (
-                                            <span className="text-[7px] bg-gradient-to-r from-green-500 to-emerald-500 text-white px-1 py-0.5 rounded-full font-bold flex items-center gap-0.5 animate-pulse">
-                                                <Users size={6} /> {room.participants.length}
+                                            <span className="text-[8px] bg-gradient-to-r from-green-500 to-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 animate-pulse">
+                                                <Users size={7} /> {room.participants.length}
                                             </span>
                                         ) : (
-                                            <span className="text-[7px] text-slate-400 italic">Vazia</span>
+                                            <span className="text-[8px] text-slate-400 italic">Vazia</span>
                                         )}
                                      </div>
-                                     <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="w-full py-0.5 rounded text-white text-[8px] font-bold hover:shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: room.participants.length > 0 ? `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` : '#cbd5e1' }}>
+                                     <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="w-full py-1 rounded-md text-white text-[9px] font-bold hover:shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: room.participants.length > 0 ? `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` : '#cbd5e1' }}>
                                         {room.participants.length > 0 ? 'Entrar' : 'Vazia'}
                                      </button>
                                  </div>
@@ -711,10 +760,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             </section>
 
             <section className="animate-fade-in-up animation-delay-200 pb-8">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-md shadow-emerald-200/50 animate-pulse">
-                            <Users className="text-white" size={12} />
+                <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-md shadow-emerald-200/50 animate-pulse">
+                            <Users className="text-white" size={14} />
                         </div>
                         <h3 className="text-sm font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-1.5">
                             Colaboradores
@@ -724,16 +773,16 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 </div>
 
                 {/* Filtros */}
-                <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
+                <div className="flex items-center gap-2 flex-wrap mb-3">
                     <button
                         onClick={() => setSelectedSector('all')}
-                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
                             selectedSector === 'all'
                                 ? 'bg-gradient-to-r from-slate-800 to-slate-700 text-white shadow-md shadow-slate-300 scale-105'
                                 : 'bg-white/80 backdrop-blur border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm'
                         }`}
                     >
-                        Todos <span className={`ml-0.5 ${selectedSector === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>({office.users.length})</span>
+                        Todos <span className={`ml-1 ${selectedSector === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>({office.users.length})</span>
                     </button>
 
                     {office.sectors.map(sector => {
@@ -744,16 +793,16 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                             <button
                                 key={sector.id}
                                 onClick={() => setSelectedSector(sector.id)}
-                                className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all flex items-center gap-1 ${
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${
                                     selectedSector === sector.id
                                         ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-300 scale-105'
                                         : 'bg-white/80 backdrop-blur border border-slate-200 text-slate-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:border-indigo-200 hover:shadow-sm'
                                 }`}
                             >
-                                <span className={`w-1.5 h-1.5 rounded-full ${sector.color} ${selectedSector === sector.id ? 'animate-pulse' : ''}`}></span>
+                                <span className={`w-2 h-2 rounded-full ${sector.color} ${selectedSector === sector.id ? 'animate-pulse' : ''}`}></span>
                                 {sector.name} <span className={selectedSector === sector.id ? 'text-indigo-200' : 'text-slate-400'}>({sectorUsers.length})</span>
                                 {onlineCount > 0 && (
-                                    <span className={`px-1 py-0.5 rounded-full text-[7px] font-bold ${selectedSector === sector.id ? 'bg-emerald-400 text-emerald-900' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${selectedSector === sector.id ? 'bg-emerald-400 text-emerald-900' : 'bg-emerald-100 text-emerald-700'}`}>
                                         {onlineCount}
                                     </span>
                                 )}
@@ -763,7 +812,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 </div>
 
                 {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {office.sectors.map((sector) => {
                         const sectorUsers = filteredUsers.filter(u => u.sectorId === sector.id);
                         if (sectorUsers.length === 0) return null;
@@ -773,64 +822,64 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                             return (
                                 <div key={sector.id}>
                                     {/* Divisor de setor */}
-                                    <div className="flex items-center gap-2 mb-1.5 pb-1 border-b border-slate-200/50">
-                                        <div className={`w-2 h-2 rounded-full ${sector.color} shadow-sm animate-pulse`}></div>
-                                        <h4 className="text-[11px] font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{sector.name}</h4>
-                                        <span className="text-[8px] font-bold bg-white/80 backdrop-blur text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200 shadow-sm">
+                                    <div className="flex items-center gap-2.5 mb-2 pb-1.5 border-b border-slate-200/50">
+                                        <div className={`w-2.5 h-2.5 rounded-full ${sector.color} shadow-sm animate-pulse`}></div>
+                                        <h4 className="text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{sector.name}</h4>
+                                        <span className="text-[9px] font-bold bg-white/80 backdrop-blur text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 shadow-sm">
                                             {sectorUsers.length}
                                         </span>
                                         {onlineCount > 0 && (
-                                            <span className="text-[8px] font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
-                                                <span className="w-0.5 h-0.5 bg-white rounded-full animate-pulse"></span>
+                                            <span className="text-[9px] font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                                                <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
                                                 {onlineCount}
                                             </span>
                                         )}
                                     </div>
 
                                     {/* Grid de usuários do setor */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-1.5 mb-3">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2 mb-4">
                                         {sectorUsers.map(user => {
                                             const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                             const isCurrentUser = user.id === currentUser.id;
                                             const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                             return (
-                                                <div key={user.id} className="relative bg-white/80 backdrop-blur-md rounded-md border border-slate-200/40 p-1.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-400/60 transition-all duration-300 group overflow-hidden">
-                                                    <div className="absolute -top-8 -right-8 w-14 h-14 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+                                                <div key={user.id} className="relative bg-white/80 backdrop-blur-md rounded-lg border border-slate-200/40 p-2 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-indigo-400/60 transition-all duration-300 group overflow-hidden">
+                                                    <div className="absolute -top-10 -right-10 w-18 h-18 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
                                                     <div className="relative z-10">
-                                                        <div className="flex items-start gap-1 mb-1">
+                                                        <div className="flex items-start gap-1.5 mb-1.5">
                                                             <div className="relative">
                                                                 <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-1 animate-pulse`}></div>
                                                                 <img
                                                                     src={getUserAvatar(user)}
                                                                     alt={user.name}
-                                                                    className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-md relative group-hover:scale-110 transition-transform duration-300"
+                                                                    className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-md relative group-hover:scale-110 transition-transform duration-300"
                                                                 />
-                                                                <span className={`absolute bottom-0 right-0 w-2 h-2 border border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
+                                                                <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
                                                                 {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-gradient-to-br from-green-400 to-emerald-500 border border-white rounded-full flex items-center justify-center animate-pulse shadow-md">
-                                                                        <Phone size={6} className="text-white" />
+                                                                    <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-md">
+                                                                        <Phone size={7} className="text-white" />
                                                                     </div>
                                                                 )}
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <h4 className="font-bold text-slate-800 text-[9px] truncate flex items-center gap-0.5">
+                                                                <h4 className="font-bold text-slate-800 text-[10px] truncate flex items-center gap-0.5">
                                                                     {user.name}
-                                                                    {isCurrentUser && <span className="text-[7px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-0.5 py-0.5 rounded font-bold">Você</span>}
+                                                                    {isCurrentUser && <span className="text-[8px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1 py-0.5 rounded font-bold">Você</span>}
                                                                 </h4>
-                                                                <p className="text-[7px] text-slate-500 truncate">{user.jobTitle || sector.name}</p>
+                                                                <p className="text-[8px] text-slate-500 truncate">{user.jobTitle || sector.name}</p>
                                                                 <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
-                                                                    <span className={`text-[7px] font-semibold px-0.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                                    <span className={`text-[8px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
                                                                         {STATUS_CONFIG[user.status].label}
                                                                     </span>
                                                                     {roomName && (
-                                                                        <span className="text-[7px] bg-purple-100 text-purple-700 px-0.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                            <Monitor size={6} /> {roomName}
+                                                                        <span className="text-[8px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                                                            <Monitor size={7} /> {roomName}
                                                                         </span>
                                                                     )}
                                                                     {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                        <span className="text-[7px] bg-green-100 text-green-700 px-0.5 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
-                                                                            <Phone size={6} /> Chamada
+                                                                        <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
+                                                                            <Phone size={7} /> Chamada
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -838,18 +887,18 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                         </div>
 
                                                         {user.statusMessage && (
-                                                            <p className="text-[7px] text-slate-500 italic mb-1 px-0.5 py-0.5 bg-slate-50/80 rounded line-clamp-1">
+                                                            <p className="text-[8px] text-slate-500 italic mb-1.5 px-1 py-0.5 bg-slate-50/80 rounded line-clamp-1">
                                                                 "{user.statusMessage}"
                                                             </p>
                                                         )}
 
-                                                        <div className="flex gap-0.5">
+                                                        <div className="flex gap-1">
                                                             <button
                                                                 onClick={() => handleOpenChatWithUser(user)}
                                                                 className="p-1 rounded bg-slate-100/80 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
                                                                 title="Enviar mensagem"
                                                             >
-                                                                <MessageSquare size={10}/>
+                                                                <MessageSquare size={11}/>
                                                             </button>
                                                             {!isCurrentUser && (
                                                                 <>
@@ -858,14 +907,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                                         className="p-1 rounded bg-slate-100/80 text-slate-600 hover:bg-green-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
                                                                         title="Ligar para o colaborador"
                                                                     >
-                                                                        <Phone size={10}/>
+                                                                        <Phone size={11}/>
                                                                     </button>
                                                                     <button
                                                                         onClick={() => handleInitiateCall(user, 'video')}
-                                                                        className="flex-1 py-1 px-1.5 rounded bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-0.5 font-bold text-[8px] shadow-sm hover:shadow-md hover:scale-105"
+                                                                        className="flex-1 py-1.5 px-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-0.5 font-bold text-[9px] shadow-sm hover:shadow-md hover:scale-105"
                                                                         title="Chamada de vídeo"
                                                                     >
-                                                                        <Video size={9}/> Ligar
+                                                                        <Video size={10}/> Ligar
                                                                     </button>
                                                                 </>
                                                             )}
@@ -1006,6 +1055,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                     )}
                 </div>
             </section>
+            </div>
         </div>
       </main>
 
