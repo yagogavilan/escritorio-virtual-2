@@ -368,18 +368,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   };
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
-    // Só permite drag se houve movimento significativo
-    if (dragStartPos) {
-      const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
-      if (!moved) {
-        e.preventDefault();
-        return;
-      }
-    }
-
     setDraggedTask(task);
     setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', task.id);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -499,20 +491,25 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   };
 
   const handleTaskClick = (e: React.MouseEvent, task: Task) => {
-      // Não abrir modal se estiver fazendo drag
-      if (isDragging) return;
-
-      // Verificar se houve movimento (drag) ou foi só um clique
-      if (dragStartPos) {
-        const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
-        if (moved) {
-          setDragStartPos(null);
-          return;
-        }
+      // Não abrir modal se estiver fazendo ou acabou de fazer drag
+      if (isDragging) {
+        return;
       }
 
       setEditingTask(task);
       setShowTaskModal(true);
+      setDragStartPos(null);
+  };
+
+  const handleTaskMouseUp = (e: React.MouseEvent, task: Task) => {
+      // Só abre se não está arrastando e não arrastou
+      if (!isDragging && dragStartPos) {
+        const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
+        if (!moved) {
+          setEditingTask(task);
+          setShowTaskModal(true);
+        }
+      }
       setDragStartPos(null);
   };
 
@@ -661,53 +658,53 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
         <div className="flex-1 overflow-y-auto p-8 scroll-smooth space-y-12 w-full">
             <section className="animate-fade-in-up">
-                <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <Monitor className="text-white" size={24} />
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <Monitor className="text-white" size={20} />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                                 Salas de Reunião
                             </h3>
-                            <p className="text-sm text-slate-500 font-medium">Espaços colaborativos para sua equipe</p>
+                            <p className="text-xs text-slate-500 font-medium">Espaços colaborativos para sua equipe</p>
                         </div>
                     </div>
                     {isAdmin && (
-                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-bold hover:shadow-xl hover:scale-105 transition-all shadow-lg shadow-indigo-200">
-                            <Plus size={18} /> Nova Sala
+                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-bold hover:shadow-xl hover:scale-105 transition-all shadow-lg shadow-indigo-200">
+                            <Plus size={16} /> Nova Sala
                         </button>
                     )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                     {office.rooms.map(room => {
                         const IconComponent = room.icon && ROOM_ICONS[room.icon] ? ROOM_ICONS[room.icon] : ROOM_ICONS['default'];
                         return (
-                            <div key={room.id} className="rounded-3xl p-7 border-2 border-slate-200/60 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-indigo-300 transition-all duration-300 relative overflow-hidden group bg-white backdrop-blur-sm" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${room.backgroundImage})` : 'white', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                                 <div className="absolute top-0 right-0 w-40 h-40 rounded-full -mr-16 -mt-16 transition-all group-hover:scale-125 opacity-10 group-hover:opacity-15 duration-500" style={{ backgroundColor: room.color || '#6366f1' }}></div>
-                                 <div className="absolute top-4 right-4 flex gap-2">
-                                     {room.isRestricted && <div className="bg-white/80 backdrop-blur px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 border border-slate-100 flex items-center gap-1 z-10 shadow-sm"><Lock size={12} /></div>}
+                            <div key={room.id} className="rounded-2xl p-4 border-2 border-slate-200/60 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-300 transition-all duration-300 relative overflow-hidden group bg-white backdrop-blur-sm" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${room.backgroundImage})` : 'white', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                                 <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-12 -mt-12 transition-all group-hover:scale-125 opacity-10 group-hover:opacity-15 duration-500" style={{ backgroundColor: room.color || '#6366f1' }}></div>
+                                 <div className="absolute top-3 right-3 flex gap-2">
+                                     {room.isRestricted && <div className="bg-white/80 backdrop-blur px-2 py-1 rounded-full text-[10px] font-bold text-slate-500 border border-slate-100 flex items-center gap-1 z-10 shadow-sm"><Lock size={10} /></div>}
                                      {isAdmin && (
-                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/80 backdrop-blur p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 z-10 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
+                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/80 backdrop-blur p-1 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 z-10 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={12} /></button>
                                      )}
                                  </div>
                                  <div className="relative z-10">
-                                     <div className="flex items-start justify-between mb-5">
-                                         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-xl transition-transform group-hover:scale-110 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={28} /> : <IconComponent size={28} />}</div>
+                                     <div className="flex items-start justify-between mb-3">
+                                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={22} /> : <IconComponent size={22} />}</div>
                                      </div>
-                                     <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors">{room.name}</h3>
-                                     <div className="flex items-center gap-2 mb-6">
-                                        <span className={`w-2.5 h-2.5 rounded-full ${room.participants.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></span>
-                                        <p className="text-sm text-slate-500 font-semibold">{room.type === 'fixed' ? 'Espaço Aberto' : 'Escritório Privado'}</p>
-                                        {room.participants.length > 0 && <span className="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{room.participants.length} {room.participants.length === 1 ? 'pessoa' : 'pessoas'}</span>}
+                                     <h3 className="text-base font-bold text-slate-800 mb-1.5 group-hover:text-indigo-600 transition-colors truncate">{room.name}</h3>
+                                     <div className="flex items-center gap-1.5 mb-3">
+                                        <span className={`w-2 h-2 rounded-full ${room.participants.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                                        <p className="text-xs text-slate-500 font-semibold truncate">{room.type === 'fixed' ? 'Espaço Aberto' : 'Escritório Privado'}</p>
+                                        {room.participants.length > 0 && <span className="ml-1 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold">{room.participants.length} {room.participants.length === 1 ? 'pessoa' : 'pessoas'}</span>}
                                      </div>
-                                     <div className="flex items-center justify-between gap-3">
-                                        <div className="flex -space-x-3 h-10">
-                                            {room.participants.slice(0, 4).map(pid => { const p = office.users.find(u => u.id === pid); if (!p) return null; return <img key={pid} src={getUserAvatar(p)} alt={p.name} className="w-10 h-10 rounded-full border-3 border-white shadow-md object-cover ring-2 ring-slate-100" title={p.name} /> })}
-                                            {room.participants.length > 4 && <div className="w-10 h-10 rounded-full border-3 border-white bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md ring-2 ring-slate-100">+{room.participants.length - 4}</div>}
-                                            {room.participants.length === 0 && <span className="text-sm text-slate-400 italic py-2">Aguardando participantes</span>}
+                                     <div className="flex items-center justify-between gap-2">
+                                        <div className="flex -space-x-2 h-8">
+                                            {room.participants.slice(0, 3).map(pid => { const p = office.users.find(u => u.id === pid); if (!p) return null; return <img key={pid} src={getUserAvatar(p)} alt={p.name} className="w-8 h-8 rounded-full border-2 border-white shadow-md object-cover ring-1 ring-slate-100" title={p.name} /> })}
+                                            {room.participants.length > 3 && <div className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[10px] font-bold shadow-md ring-1 ring-slate-100">+{room.participants.length - 3}</div>}
+                                            {room.participants.length === 0 && <span className="text-xs text-slate-400 italic py-1">Aguardando</span>}
                                         </div>
-                                        <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="px-6 py-2.5 rounded-xl text-white font-bold hover:shadow-2xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>Entrar</button>
+                                        <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="px-4 py-2 rounded-xl text-white text-xs font-bold hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>Entrar</button>
                                      </div>
                                  </div>
                             </div>
@@ -717,17 +714,17 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             </section>
 
             <section className="animate-fade-in-up animation-delay-200 pb-20">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
-                            <Users className="text-white" size={24} />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
+                            <Users className="text-white" size={20} />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                                 Colaboradores
-                                <span className="text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-1 rounded-full shadow-md">{office.users.length}</span>
+                                <span className="text-xs font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 px-2 py-0.5 rounded-full shadow-md">{office.users.length}</span>
                             </h3>
-                            <p className="text-sm text-slate-500 font-medium">Equipe conectada e colaborativa</p>
+                            <p className="text-xs text-slate-500 font-medium">Equipe conectada e colaborativa</p>
                         </div>
                     </div>
 
@@ -804,47 +801,47 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                     </div>
 
                                     {/* Grid de usuários do setor */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
                                         {sectorUsers.map(user => {
                                             const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                             const isCurrentUser = user.id === currentUser.id;
                                             const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                             return (
-                                                <div key={user.id} className="bg-white rounded-2xl border-2 border-slate-200/60 p-5 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-300 transition-all duration-300 group">
-                                                    <div className="flex items-start gap-3 mb-4">
+                                                <div key={user.id} className="bg-white rounded-2xl border-2 border-slate-200/60 p-3 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-300 transition-all duration-300 group">
+                                                    <div className="flex items-start gap-2 mb-3">
                                                         <div className="relative">
                                                             <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-2 animate-pulse`}></div>
                                                             <img
                                                                 src={getUserAvatar(user)}
                                                                 alt={user.name}
-                                                                className="w-16 h-16 rounded-full object-cover border-3 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
+                                                                className="w-12 h-12 rounded-full object-cover border-3 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
                                                             />
-                                                            <span className={`absolute bottom-0 right-0 w-4 h-4 border-3 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-md`}></span>
+                                                            <span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-md`}></span>
                                                             {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 border-3 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
-                                                                    <Phone size={12} className="text-white" />
+                                                                <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                                    <Phone size={10} className="text-white" />
                                                                 </div>
                                                             )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-1">
+                                                            <h4 className="font-bold text-slate-800 text-xs truncate flex items-center gap-1">
                                                                 {user.name}
-                                                                {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
+                                                                {isCurrentUser && <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded">Você</span>}
                                                             </h4>
-                                                            <p className="text-xs text-slate-500 truncate">{user.jobTitle || sector.name}</p>
-                                                            <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                            <p className="text-[10px] text-slate-500 truncate">{user.jobTitle || sector.name}</p>
+                                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                                                <span className={`text-[9px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
                                                                     {STATUS_CONFIG[user.status].label}
                                                                 </span>
                                                                 {roomName && (
-                                                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                        <Monitor size={10} /> {roomName}
+                                                                    <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                                                        <Monitor size={8} /> {roomName}
                                                                     </span>
                                                                 )}
                                                                 {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
-                                                                        <Phone size={10} /> Em chamada com {usersInCall[user.id].map(uid => office.users.find(u => u.id === uid)?.name.split(' ')[0]).join(', ')}
+                                                                    <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
+                                                                        <Phone size={8} /> Em chamada
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -852,34 +849,34 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                     </div>
 
                                                     {user.statusMessage && (
-                                                        <p className="text-xs text-slate-500 italic mb-3 px-2 py-1 bg-slate-50 rounded line-clamp-1">
+                                                        <p className="text-[10px] text-slate-500 italic mb-2 px-1.5 py-1 bg-slate-50 rounded line-clamp-1">
                                                             "{user.statusMessage}"
                                                         </p>
                                                     )}
 
-                                                    <div className="flex gap-2">
+                                                    <div className="flex gap-1.5">
                                                         <button
                                                             onClick={() => handleOpenChatWithUser(user)}
-                                                            className="p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
+                                                            className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
                                                             title="Enviar mensagem"
                                                         >
-                                                            <MessageSquare size={18}/>
+                                                            <MessageSquare size={14}/>
                                                         </button>
                                                         {!isCurrentUser && (
                                                             <>
                                                                 <button
                                                                     onClick={() => handleInitiateCall(user, 'audio')}
-                                                                    className="p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
+                                                                    className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
                                                                     title="Ligar para o colaborador"
                                                                 >
-                                                                    <Phone size={18}/>
+                                                                    <Phone size={14}/>
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleInitiateCall(user, 'video')}
-                                                                    className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2 font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:scale-105"
+                                                                    className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-1.5 font-bold text-xs shadow-lg shadow-indigo-200 hover:shadow-xl hover:scale-105"
                                                                     title="Chamada de vídeo"
                                                                 >
-                                                                    <Video size={18}/> Ligar
+                                                                    <Video size={14}/> Ligar
                                                                 </button>
                                                             </>
                                                         )}
@@ -907,47 +904,47 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
                                     {usersWithoutSector.map(user => {
                                         const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                         const isCurrentUser = user.id === currentUser.id;
                                         const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                         return (
-                                            <div key={user.id} className="bg-white rounded-2xl border-2 border-slate-200/60 p-5 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-300 transition-all duration-300 group">
-                                                <div className="flex items-start gap-3 mb-4">
+                                            <div key={user.id} className="bg-white rounded-2xl border-2 border-slate-200/60 p-3 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-300 transition-all duration-300 group">
+                                                <div className="flex items-start gap-2 mb-3">
                                                     <div className="relative">
                                                         <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-2 animate-pulse`}></div>
                                                         <img
                                                             src={getUserAvatar(user)}
                                                             alt={user.name}
-                                                            className="w-16 h-16 rounded-full object-cover border-3 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
+                                                            className="w-12 h-12 rounded-full object-cover border-3 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
                                                         />
-                                                        <span className={`absolute bottom-0 right-0 w-4 h-4 border-3 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-md`}></span>
+                                                        <span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-md`}></span>
                                                         {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 border-3 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
-                                                                <Phone size={12} className="text-white" />
+                                                            <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                                <Phone size={10} className="text-white" />
                                                             </div>
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="font-bold text-slate-800 text-sm truncate flex items-center gap-1">
+                                                        <h4 className="font-bold text-slate-800 text-xs truncate flex items-center gap-1">
                                                             {user.name}
-                                                            {isCurrentUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Você</span>}
+                                                            {isCurrentUser && <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded">Você</span>}
                                                         </h4>
-                                                        <p className="text-xs text-slate-500 truncate">{user.jobTitle || 'Sem setor'}</p>
-                                                        <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                        <p className="text-[10px] text-slate-500 truncate">{user.jobTitle || 'Sem setor'}</p>
+                                                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                                            <span className={`text-[9px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
                                                                 {STATUS_CONFIG[user.status].label}
                                                             </span>
                                                             {roomName && (
-                                                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                    <Monitor size={10} /> {roomName}
+                                                                <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                                                    <Monitor size={8} /> {roomName}
                                                                 </span>
                                                             )}
                                                             {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
-                                                                    <Phone size={10} /> Em chamada com {usersInCall[user.id].map(uid => office.users.find(u => u.id === uid)?.name.split(' ')[0]).join(', ')}
+                                                                <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
+                                                                    <Phone size={8} /> Em chamada
                                                                 </span>
                                                             )}
                                                         </div>
@@ -955,34 +952,34 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                 </div>
 
                                                 {user.statusMessage && (
-                                                    <p className="text-xs text-slate-500 italic mb-3 px-2 py-1 bg-slate-50 rounded line-clamp-1">
+                                                    <p className="text-[10px] text-slate-500 italic mb-2 px-1.5 py-1 bg-slate-50 rounded line-clamp-1">
                                                         "{user.statusMessage}"
                                                     </p>
                                                 )}
 
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1.5">
                                                     <button
                                                         onClick={() => handleOpenChatWithUser(user)}
-                                                        className="p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
+                                                        className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
                                                         title="Enviar mensagem"
                                                     >
-                                                        <MessageSquare size={18}/>
+                                                        <MessageSquare size={14}/>
                                                     </button>
                                                     {!isCurrentUser && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleInitiateCall(user, 'audio')}
-                                                                className="p-2.5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
+                                                                className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
                                                                 title="Ligar para o colaborador"
                                                             >
-                                                                <Phone size={18}/>
+                                                                <Phone size={14}/>
                                                             </button>
                                                             <button
                                                                 onClick={() => handleInitiateCall(user, 'video')}
-                                                                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2 font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:scale-105"
+                                                                className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-1.5 font-bold text-xs shadow-lg shadow-indigo-200 hover:shadow-xl hover:scale-105"
                                                                 title="Chamada de vídeo"
                                                             >
-                                                                <Video size={18}/> Ligar
+                                                                <Video size={14}/> Ligar
                                                             </button>
                                                         </>
                                                     )}
