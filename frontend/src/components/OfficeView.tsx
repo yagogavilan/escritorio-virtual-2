@@ -634,78 +634,75 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden relative min-w-0 bg-gradient-to-br from-slate-50 via-slate-50 to-indigo-50">
-        <header className="h-24 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 px-8 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm">
-            <div className="flex items-center gap-6 flex-1">
-                <div className="relative w-full max-w-2xl">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400" size={22} />
+      <main className="flex-1 flex flex-col overflow-hidden relative min-w-0 bg-gradient-to-br from-slate-100 via-indigo-50 to-purple-50">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-200/20 via-purple-200/10 to-transparent pointer-events-none"></div>
+        <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm relative">
+            <div className="flex items-center gap-4 flex-1">
+                <div className="relative w-full max-w-xl">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={18} />
                     <input
                         type="text"
-                        placeholder="Pesquisar colegas, salas, documentos..."
-                        className="w-full pl-14 pr-6 py-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 border border-slate-200/60 rounded-2xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-300 focus:bg-white transition-all shadow-sm hover:shadow-md"
+                        placeholder="Buscar pessoas, salas..."
+                        className="w-full pl-11 pr-4 py-2.5 bg-white/80 backdrop-blur border border-indigo-200/50 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:bg-white transition-all shadow-sm hover:shadow-md"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
             </div>
-            <div className="hidden md:flex items-center gap-3 bg-gradient-to-r from-slate-100 to-indigo-100/50 px-5 py-2.5 rounded-xl border border-slate-200/60">
-                <Clock size={18} className="text-indigo-600" />
-                <span className="text-slate-700 font-semibold text-sm">
-                    {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg shadow-lg">
+                <Clock size={16} />
+                <span className="font-semibold text-xs">
+                    {new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </span>
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth space-y-8 w-full">
+        <div className="flex-1 overflow-y-auto p-5 scroll-smooth space-y-6 w-full">
             <section className="animate-fade-in-up">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <Monitor className="text-white" size={18} />
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-200/50 animate-pulse">
+                            <Monitor className="text-white" size={16} />
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                Salas de Reunião
-                            </h3>
-                            <p className="text-[11px] text-slate-500 font-medium">Espaços colaborativos para sua equipe</p>
-                        </div>
+                        <h3 className="text-base font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                            Salas de Reunião
+                        </h3>
                     </div>
                     {isAdmin && (
-                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs font-bold hover:shadow-xl hover:scale-105 transition-all shadow-lg shadow-indigo-200">
-                            <Plus size={14} /> Nova Sala
+                        <button onClick={() => setShowCreateRoomModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:scale-105 transition-all shadow-md">
+                            <Plus size={12} /> Nova
                         </button>
                     )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2">
                     {office.rooms.map(room => {
                         const IconComponent = room.icon && ROOM_ICONS[room.icon] ? ROOM_ICONS[room.icon] : ROOM_ICONS['default'];
                         return (
-                            <div key={room.id} className="rounded-xl p-2.5 border border-slate-200/60 shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:border-indigo-300 transition-all duration-300 relative overflow-hidden group bg-white backdrop-blur-sm" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), url(${room.backgroundImage})` : 'white', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                                 <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8 transition-all group-hover:scale-125 opacity-10 group-hover:opacity-15 duration-500" style={{ backgroundColor: room.color || '#6366f1' }}></div>
-                                 <div className="absolute top-2 right-2 flex gap-1.5">
-                                     {room.isRestricted && <div className="bg-white/80 backdrop-blur px-1.5 py-0.5 rounded-full text-[9px] font-bold text-slate-500 border border-slate-100 flex items-center gap-0.5 z-10 shadow-sm"><Lock size={8} /></div>}
+                            <div key={room.id} className="rounded-lg p-2 border border-slate-200/40 hover:border-indigo-400/60 shadow-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden group bg-white/80 backdrop-blur-md" style={{ background: room.backgroundImage ? `linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url(${room.backgroundImage})` : 'linear-gradient(to bottom right, white, rgba(255, 255, 255, 0.95))', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                                 <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity" style={{ backgroundColor: room.color || '#6366f1' }}></div>
+                                 <div className="absolute top-1 right-1 flex gap-1 z-10">
+                                     {room.isRestricted && <div className="bg-white/90 backdrop-blur-sm px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 flex items-center gap-0.5 shadow-sm"><Lock size={7} /></div>}
                                      {isAdmin && (
-                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/80 backdrop-blur p-0.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 z-10 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={10} /></button>
+                                         <button onClick={(e) => { e.stopPropagation(); onDeleteRoom(room.id); }} className="bg-white/90 backdrop-blur-sm p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 shadow-sm opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={8} /></button>
                                      )}
                                  </div>
                                  <div className="relative z-10">
-                                     <div className="flex items-start justify-between mb-2">
-                                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={18} /> : <IconComponent size={18} />}</div>
+                                     <div className="flex items-center justify-center mb-1.5">
+                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300`} style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>{room.participants.length > 0 ? <Users size={14} /> : <IconComponent size={14} />}</div>
                                      </div>
-                                     <h3 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors truncate">{room.name}</h3>
-                                     <div className="flex items-center gap-1 mb-2">
-                                        <span className={`w-1.5 h-1.5 rounded-full ${room.participants.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></span>
-                                        <p className="text-[10px] text-slate-500 font-semibold truncate">{room.type === 'fixed' ? 'Aberto' : 'Privado'}</p>
-                                        {room.participants.length > 0 && <span className="ml-0.5 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full font-bold">{room.participants.length}</span>}
+                                     <h3 className="text-[11px] font-bold text-slate-800 text-center mb-1 group-hover:text-indigo-600 transition-colors truncate">{room.name}</h3>
+                                     <div className="flex items-center justify-center gap-1 mb-1.5">
+                                        {room.participants.length > 0 ? (
+                                            <span className="text-[9px] bg-gradient-to-r from-green-500 to-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 animate-pulse">
+                                                <Users size={8} /> {room.participants.length}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] text-slate-400 italic">Vazia</span>
+                                        )}
                                      </div>
-                                     <div className="flex items-center justify-between gap-1.5">
-                                        <div className="flex -space-x-1.5 h-6">
-                                            {room.participants.slice(0, 3).map(pid => { const p = office.users.find(u => u.id === pid); if (!p) return null; return <img key={pid} src={getUserAvatar(p)} alt={p.name} className="w-6 h-6 rounded-full border border-white shadow-sm object-cover ring-1 ring-slate-100" title={p.name} /> })}
-                                            {room.participants.length > 3 && <div className="w-6 h-6 rounded-full border border-white bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[9px] font-bold shadow-sm ring-1 ring-slate-100">+{room.participants.length - 3}</div>}
-                                            {room.participants.length === 0 && <span className="text-[10px] text-slate-400 italic py-0.5">Vazia</span>}
-                                        </div>
-                                        <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="px-3 py-1.5 rounded-lg text-white text-[10px] font-bold hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" style={{ background: `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` }}>Entrar</button>
-                                     </div>
+                                     <button onClick={() => onEnterRoom(room)} disabled={room.isRestricted && room.participants.length === 0} className="w-full py-1 rounded-md text-white text-[9px] font-bold hover:shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: room.participants.length > 0 ? `linear-gradient(135deg, ${room.color || '#6366f1'}, ${room.color || '#6366f1'}dd)` : '#cbd5e1' }}>
+                                        {room.participants.length > 0 ? 'Entrar' : 'Vazia'}
+                                     </button>
                                  </div>
                             </div>
                         );
@@ -713,68 +710,56 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                 </div>
             </section>
 
-            <section className="animate-fade-in-up animation-delay-200 pb-16">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
-                            <Users className="text-white" size={18} />
+            <section className="animate-fade-in-up animation-delay-200 pb-12">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-200/50 animate-pulse">
+                            <Users className="text-white" size={16} />
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                Colaboradores
-                                <span className="text-[10px] font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 px-1.5 py-0.5 rounded-full shadow-md">{office.users.length}</span>
-                            </h3>
-                            <p className="text-[11px] text-slate-500 font-medium">Equipe conectada e colaborativa</p>
-                        </div>
+                        <h3 className="text-base font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                            Colaboradores
+                            <span className="text-[10px] font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 px-2 py-0.5 rounded-full shadow-md">{office.users.length}</span>
+                        </h3>
                     </div>
+                </div>
 
-                        {/* Filtros na mesma linha */}
-                        <div className="flex items-center gap-3 flex-wrap">
+                {/* Filtros */}
+                <div className="flex items-center gap-2 flex-wrap mb-4">
+                    <button
+                        onClick={() => setSelectedSector('all')}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                            selectedSector === 'all'
+                                ? 'bg-gradient-to-r from-slate-800 to-slate-700 text-white shadow-lg shadow-slate-300 scale-105'
+                                : 'bg-white/80 backdrop-blur border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md'
+                        }`}
+                    >
+                        Todos <span className={`ml-1 ${selectedSector === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>({office.users.length})</span>
+                    </button>
+
+                    {office.sectors.map(sector => {
+                        const sectorUsers = office.users.filter(u => u.sectorId === sector.id);
+                        const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
+
+                        return (
                             <button
-                                onClick={() => setSelectedSector('all')}
-                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
-                                    selectedSector === 'all'
-                                        ? 'bg-gradient-to-r from-slate-800 to-slate-700 text-white shadow-lg shadow-slate-300 scale-105'
-                                        : 'bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md'
+                                key={sector.id}
+                                onClick={() => setSelectedSector(sector.id)}
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                                    selectedSector === sector.id
+                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-300 scale-105'
+                                        : 'bg-white/80 backdrop-blur border border-slate-200 text-slate-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:border-indigo-200 hover:shadow-md'
                                 }`}
                             >
-                                Todos <span className={`ml-1.5 ${selectedSector === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>({office.users.length})</span>
+                                <span className={`w-2 h-2 rounded-full ${sector.color} ${selectedSector === sector.id ? 'animate-pulse' : ''}`}></span>
+                                {sector.name} <span className={selectedSector === sector.id ? 'text-indigo-200' : 'text-slate-400'}>({sectorUsers.length})</span>
+                                {onlineCount > 0 && (
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${selectedSector === sector.id ? 'bg-emerald-400 text-emerald-900' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        {onlineCount}
+                                    </span>
+                                )}
                             </button>
-
-                            {office.sectors.map(sector => {
-                                const sectorUsers = office.users.filter(u => u.sectorId === sector.id);
-                                const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
-
-                                return (
-                                    <button
-                                        key={sector.id}
-                                        onClick={() => setSelectedSector(sector.id)}
-                                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm ${
-                                            selectedSector === sector.id
-                                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-300 scale-105'
-                                                : 'bg-white border-2 border-slate-200 text-slate-600 hover:bg-gradient-to-r hover:from-slate-50 hover:to-indigo-50 hover:border-indigo-200 hover:shadow-md'
-                                        }`}
-                                    >
-                                        <span className={`w-2.5 h-2.5 rounded-full ${sector.color} ${selectedSector === sector.id ? 'animate-pulse' : ''}`}></span>
-                                        {sector.name} <span className={selectedSector === sector.id ? 'text-indigo-200' : 'text-slate-500'}>({sectorUsers.length})</span>
-                                        <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${selectedSector === sector.id ? 'bg-emerald-400 text-emerald-900' : 'bg-emerald-100 text-emerald-700'}`}>
-                                            {onlineCount} online
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Buscar colaborador por nome..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-11 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium bg-white focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 hover:border-slate-300 transition-all shadow-sm w-64"
-                        />
-                    </div>
+                        );
+                    })}
                 </div>
 
                 {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
@@ -788,98 +773,103 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                             return (
                                 <div key={sector.id}>
                                     {/* Divisor de setor */}
-                                    <div className="flex items-center gap-4 mb-6 pb-3 border-b-2 border-gradient-to-r from-slate-200 via-slate-300 to-slate-200">
-                                        <div className={`w-4 h-4 rounded-full ${sector.color} shadow-lg animate-pulse`}></div>
-                                        <h4 className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">{sector.name}</h4>
-                                        <span className="text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 px-3 py-1 rounded-full border border-slate-300 shadow-sm">
-                                            {sectorUsers.length} {sectorUsers.length === 1 ? 'colaborador' : 'colaboradores'}
+                                    <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200/50">
+                                        <div className={`w-3 h-3 rounded-full ${sector.color} shadow-md animate-pulse`}></div>
+                                        <h4 className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{sector.name}</h4>
+                                        <span className="text-[10px] font-bold bg-white/80 backdrop-blur text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 shadow-sm">
+                                            {sectorUsers.length}
                                         </span>
-                                        <span className="text-xs font-bold bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 px-3 py-1 rounded-full border border-emerald-300 shadow-sm flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                            {onlineCount} online
-                                        </span>
+                                        {onlineCount > 0 && (
+                                            <span className="text-[10px] font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                                                <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                                                {onlineCount}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Grid de usuários do setor */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-3 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5 mb-5">
                                         {sectorUsers.map(user => {
                                             const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                             const isCurrentUser = user.id === currentUser.id;
                                             const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                             return (
-                                                <div key={user.id} className="bg-white rounded-xl border border-slate-200/60 p-2 shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:border-indigo-300 transition-all duration-300 group">
-                                                    <div className="flex items-start gap-1.5 mb-2">
-                                                        <div className="relative">
-                                                            <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-1 animate-pulse`}></div>
-                                                            <img
-                                                                src={getUserAvatar(user)}
-                                                                alt={user.name}
-                                                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md relative group-hover:scale-110 transition-transform duration-300"
-                                                            />
-                                                            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
-                                                            {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-md">
-                                                                    <Phone size={8} className="text-white" />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-bold text-slate-800 text-[11px] truncate flex items-center gap-0.5">
-                                                                {user.name}
-                                                                {isCurrentUser && <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded">Você</span>}
-                                                            </h4>
-                                                            <p className="text-[9px] text-slate-500 truncate">{user.jobTitle || sector.name}</p>
-                                                            <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
-                                                                <span className={`text-[8px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
-                                                                    {STATUS_CONFIG[user.status].label}
-                                                                </span>
-                                                                {roomName && (
-                                                                    <span className="text-[8px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
-                                                                        <Monitor size={7} /> {roomName}
-                                                                    </span>
-                                                                )}
+                                                <div key={user.id} className="relative bg-white/80 backdrop-blur-md rounded-lg border border-slate-200/40 p-2 shadow-md hover:shadow-xl hover:-translate-y-1 hover:border-indigo-400/60 transition-all duration-300 group overflow-hidden">
+                                                    <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
+                                                    <div className="relative z-10">
+                                                        <div className="flex items-start gap-1.5 mb-2">
+                                                            <div className="relative">
+                                                                <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-1 animate-pulse`}></div>
+                                                                <img
+                                                                    src={getUserAvatar(user)}
+                                                                    alt={user.name}
+                                                                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
+                                                                />
+                                                                <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
                                                                 {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                    <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
-                                                                        <Phone size={7} /> Chamada
-                                                                    </span>
+                                                                    <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                                        <Phone size={8} className="text-white" />
+                                                                    </div>
                                                                 )}
                                                             </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="font-bold text-slate-800 text-[11px] truncate flex items-center gap-0.5">
+                                                                    {user.name}
+                                                                    {isCurrentUser && <span className="text-[8px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1 py-0.5 rounded font-bold">Você</span>}
+                                                                </h4>
+                                                                <p className="text-[9px] text-slate-500 truncate">{user.jobTitle || sector.name}</p>
+                                                                <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                                                                    <span className={`text-[8px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                                        {STATUS_CONFIG[user.status].label}
+                                                                    </span>
+                                                                    {roomName && (
+                                                                        <span className="text-[8px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                                                            <Monitor size={7} /> {roomName}
+                                                                        </span>
+                                                                    )}
+                                                                    {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
+                                                                        <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
+                                                                            <Phone size={7} /> Chamada
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
 
-                                                    {user.statusMessage && (
-                                                        <p className="text-[9px] text-slate-500 italic mb-1.5 px-1 py-0.5 bg-slate-50 rounded line-clamp-1">
-                                                            "{user.statusMessage}"
-                                                        </p>
-                                                    )}
-
-                                                    <div className="flex gap-1">
-                                                        <button
-                                                            onClick={() => handleOpenChatWithUser(user)}
-                                                            className="p-1.5 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
-                                                            title="Enviar mensagem"
-                                                        >
-                                                            <MessageSquare size={12}/>
-                                                        </button>
-                                                        {!isCurrentUser && (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => handleInitiateCall(user, 'audio')}
-                                                                    className="p-1.5 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
-                                                                    title="Ligar para o colaborador"
-                                                                >
-                                                                    <Phone size={12}/>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleInitiateCall(user, 'video')}
-                                                                    className="flex-1 py-1.5 px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md shadow-indigo-200 hover:shadow-lg hover:scale-105"
-                                                                    title="Chamada de vídeo"
-                                                                >
-                                                                    <Video size={12}/> Ligar
-                                                                </button>
-                                                            </>
+                                                        {user.statusMessage && (
+                                                            <p className="text-[9px] text-slate-500 italic mb-1.5 px-1 py-0.5 bg-slate-50/80 rounded line-clamp-1">
+                                                                "{user.statusMessage}"
+                                                            </p>
                                                         )}
+
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                onClick={() => handleOpenChatWithUser(user)}
+                                                                className="p-1.5 rounded-md bg-slate-100/80 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
+                                                                title="Enviar mensagem"
+                                                            >
+                                                                <MessageSquare size={12}/>
+                                                            </button>
+                                                            {!isCurrentUser && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleInitiateCall(user, 'audio')}
+                                                                        className="p-1.5 rounded-md bg-slate-100/80 text-slate-600 hover:bg-green-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
+                                                                        title="Ligar para o colaborador"
+                                                                    >
+                                                                        <Phone size={12}/>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleInitiateCall(user, 'video')}
+                                                                        className="flex-1 py-1.5 px-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md hover:shadow-lg hover:scale-105"
+                                                                        title="Chamada de vídeo"
+                                                                    >
+                                                                        <Video size={12}/> Ligar
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
@@ -904,85 +894,88 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-3 mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5 mb-5">
                                     {usersWithoutSector.map(user => {
                                         const roomName = user.currentRoomId ? office.rooms.find(r => r.id === user.currentRoomId)?.name : undefined;
                                         const isCurrentUser = user.id === currentUser.id;
                                         const isBusy = user.status === 'busy' || user.status === 'in_meeting';
 
                                         return (
-                                            <div key={user.id} className="bg-white rounded-xl border border-slate-200/60 p-2 shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:border-indigo-300 transition-all duration-300 group">
-                                                <div className="flex items-start gap-1.5 mb-2">
-                                                    <div className="relative">
-                                                        <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-1 animate-pulse`}></div>
-                                                        <img
-                                                            src={getUserAvatar(user)}
-                                                            alt={user.name}
-                                                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md relative group-hover:scale-110 transition-transform duration-300"
-                                                        />
-                                                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
-                                                        {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                            <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-md">
-                                                                <Phone size={8} className="text-white" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-bold text-slate-800 text-[11px] truncate flex items-center gap-0.5">
-                                                            {user.name}
-                                                            {isCurrentUser && <span className="text-[8px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded">Você</span>}
-                                                        </h4>
-                                                        <p className="text-[9px] text-slate-500 truncate">{user.jobTitle || 'Sem setor'}</p>
-                                                        <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
-                                                            <span className={`text-[8px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
-                                                                {STATUS_CONFIG[user.status].label}
-                                                            </span>
-                                                            {roomName && (
-                                                                <span className="text-[8px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
-                                                                    <Monitor size={7} /> {roomName}
-                                                                </span>
-                                                            )}
+                                            <div key={user.id} className="relative bg-white/80 backdrop-blur-md rounded-lg border border-slate-200/40 p-2 shadow-md hover:shadow-xl hover:-translate-y-1 hover:border-indigo-400/60 transition-all duration-300 group overflow-hidden">
+                                                <div className="absolute -top-10 -right-10 w-20 h-20 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
+                                                <div className="relative z-10">
+                                                    <div className="flex items-start gap-1.5 mb-2">
+                                                        <div className="relative">
+                                                            <div className={`absolute inset-0 rounded-full ${STATUS_CONFIG[user.status].ring} ring-1 animate-pulse`}></div>
+                                                            <img
+                                                                src={getUserAvatar(user)}
+                                                                alt={user.name}
+                                                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg relative group-hover:scale-110 transition-transform duration-300"
+                                                            />
+                                                            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${STATUS_CONFIG[user.status].color} shadow-sm`}></span>
                                                             {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
-                                                                <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
-                                                                    <Phone size={7} /> Chamada
-                                                                </span>
+                                                                <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                                    <Phone size={8} className="text-white" />
+                                                                </div>
                                                             )}
                                                         </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="font-bold text-slate-800 text-[11px] truncate flex items-center gap-0.5">
+                                                                {user.name}
+                                                                {isCurrentUser && <span className="text-[8px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1 py-0.5 rounded font-bold">Você</span>}
+                                                            </h4>
+                                                            <p className="text-[9px] text-slate-500 truncate">{user.jobTitle || 'Sem setor'}</p>
+                                                            <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                                                                <span className={`text-[8px] font-semibold px-1 py-0.5 rounded ${STATUS_CONFIG[user.status].color.replace('bg-', 'bg-').replace('-500', '-100')} ${STATUS_CONFIG[user.status].color.replace('bg-', 'text-').replace('-500', '-700')}`}>
+                                                                    {STATUS_CONFIG[user.status].label}
+                                                                </span>
+                                                                {roomName && (
+                                                                    <span className="text-[8px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                                                        <Monitor size={7} /> {roomName}
+                                                                    </span>
+                                                                )}
+                                                                {usersInCall[user.id] && usersInCall[user.id].length > 0 && (
+                                                                    <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded flex items-center gap-0.5 font-semibold animate-pulse">
+                                                                        <Phone size={7} /> Chamada
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                {user.statusMessage && (
-                                                    <p className="text-[9px] text-slate-500 italic mb-1.5 px-1 py-0.5 bg-slate-50 rounded line-clamp-1">
-                                                        "{user.statusMessage}"
-                                                    </p>
-                                                )}
-
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => handleOpenChatWithUser(user)}
-                                                        className="p-1.5 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-indigo-50 hover:to-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-indigo-300"
-                                                        title="Enviar mensagem"
-                                                    >
-                                                        <MessageSquare size={12}/>
-                                                    </button>
-                                                    {!isCurrentUser && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleInitiateCall(user, 'audio')}
-                                                                className="p-1.5 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 hover:from-green-50 hover:to-emerald-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md border border-slate-200 hover:border-green-300"
-                                                                title="Ligar para o colaborador"
-                                                            >
-                                                                <Phone size={12}/>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleInitiateCall(user, 'video')}
-                                                                className="flex-1 py-1.5 px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md shadow-indigo-200 hover:shadow-lg hover:scale-105"
-                                                                title="Chamada de vídeo"
-                                                            >
-                                                                <Video size={12}/> Ligar
-                                                            </button>
-                                                        </>
+                                                    {user.statusMessage && (
+                                                        <p className="text-[9px] text-slate-500 italic mb-1.5 px-1 py-0.5 bg-slate-50/80 rounded line-clamp-1">
+                                                            "{user.statusMessage}"
+                                                        </p>
                                                     )}
+
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => handleOpenChatWithUser(user)}
+                                                            className="p-1.5 rounded-md bg-slate-100/80 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
+                                                            title="Enviar mensagem"
+                                                        >
+                                                            <MessageSquare size={12}/>
+                                                        </button>
+                                                        {!isCurrentUser && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleInitiateCall(user, 'audio')}
+                                                                    className="p-1.5 rounded-md bg-slate-100/80 text-slate-600 hover:bg-green-100 hover:text-green-600 transition-all shadow-sm hover:shadow-md hover:scale-110"
+                                                                    title="Ligar para o colaborador"
+                                                                >
+                                                                    <Phone size={12}/>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleInitiateCall(user, 'video')}
+                                                                    className="flex-1 py-1.5 px-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md hover:shadow-lg hover:scale-105"
+                                                                    title="Chamada de vídeo"
+                                                                >
+                                                                    <Video size={12}/> Ligar
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
