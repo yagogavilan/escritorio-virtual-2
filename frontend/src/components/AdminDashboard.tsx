@@ -573,78 +573,147 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
 
           {/* BILLING VIEW */}
           {activeTab === 'billing' && (
-              <div className="max-w-4xl space-y-6 animate-fade-in">
-                  <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl shadow-indigo-200 flex justify-between items-center">
-                      <div>
-                          <p className="text-indigo-100 font-medium mb-1">Current Plan</p>
-                          <h2 className="text-3xl font-bold mb-4">Enterprise Bundle</h2>
-                          <div className="flex gap-6 text-sm text-indigo-100">
-                              <span className="flex items-center gap-2"><CheckCircle size={16} /> Unlimited Offices</span>
-                              <span className="flex items-center gap-2"><CheckCircle size={16} /> Priority Support</span>
-                              <span className="flex items-center gap-2"><CheckCircle size={16} /> Advanced Analytics</span>
-                          </div>
+              <div className="space-y-6 animate-fade-in">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
+                          <p className="text-indigo-100 font-medium mb-1">MRR Total</p>
+                          <h3 className="text-3xl font-bold">
+                              ${billingSummary?.totalMRR?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0.00'}
+                          </h3>
                       </div>
-                      <div className="text-right">
-                          <p className="text-indigo-100 font-medium mb-1">Next Payment</p>
-                          <h3 className="text-2xl font-bold mb-4">$2,400.00</h3>
-                          <button className="bg-white text-indigo-600 px-6 py-2 rounded-lg font-bold text-sm shadow-lg hover:bg-indigo-50 transition-colors">
-                              Manage Subscription
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                          <p className="text-slate-500 font-medium mb-1">Confirmado este mês</p>
+                          <h3 className="text-3xl font-bold text-green-600">
+                              ${billingSummary?.currentMonth?.totalConfirmed?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0.00'}
+                          </h3>
+                      </div>
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                          <p className="text-slate-500 font-medium mb-1">Pendente este mês</p>
+                          <h3 className="text-3xl font-bold text-yellow-600">
+                              ${billingSummary?.currentMonth?.totalPending?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0.00'}
+                          </h3>
+                      </div>
+                  </div>
+
+                  {/* Offices Billing Table */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                          <h3 className="text-lg font-bold text-slate-800">Faturamento por Escritório</h3>
+                          <button
+                              onClick={async () => {
+                                  try {
+                                      await billingApi.generateCurrentMonth();
+                                      await loadBilling();
+                                      alert('Pagamentos do mês atual gerados com sucesso!');
+                                  } catch (err) {
+                                      alert('Erro ao gerar pagamentos');
+                                  }
+                              }}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
+                          >
+                              Gerar Pagamentos do Mês
                           </button>
                       </div>
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                              <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                                  <tr>
+                                      <th className="px-6 py-3">Escritório</th>
+                                      <th className="px-6 py-3">Usuários</th>
+                                      <th className="px-6 py-3">Preço/Usuário</th>
+                                      <th className="px-6 py-3">Total Mensal</th>
+                                      <th className="px-6 py-3">Último Pagamento</th>
+                                      <th className="px-6 py-3 text-right">Ações</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-sm">
+                                  {billingPlans.length === 0 ? (
+                                      <tr>
+                                          <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                                              Nenhum plano de faturamento configurado. Configure o preço por usuário para cada escritório.
+                                          </td>
+                                      </tr>
+                                  ) : (
+                                      billingPlans.map((plan: any) => {
+                                          const lastPayment = plan.payments[0];
+                                          return (
+                                              <tr key={plan.id}>
+                                                  <td className="px-6 py-4 font-medium text-slate-800">{plan.officeName}</td>
+                                                  <td className="px-6 py-4 text-slate-600">{plan.currentUserCount}</td>
+                                                  <td className="px-6 py-4">
+                                                      <span className="font-semibold text-slate-800">
+                                                          ${plan.pricePerUser.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                      </span>
+                                                  </td>
+                                                  <td className="px-6 py-4 font-bold text-indigo-600">
+                                                      ${plan.currentMonthlyTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                  </td>
+                                                  <td className="px-6 py-4">
+                                                      {lastPayment ? (
+                                                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${
+                                                              lastPayment.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                                              lastPayment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                              'bg-red-100 text-red-700'
+                                                          }`}>
+                                                              {lastPayment.month}/{lastPayment.year} - {lastPayment.status}
+                                                          </span>
+                                                      ) : (
+                                                          <span className="text-slate-400">Nenhum</span>
+                                                      )}
+                                                  </td>
+                                                  <td className="px-6 py-4 text-right">
+                                                      <button
+                                                          onClick={() => {
+                                                              const newPrice = prompt(`Definir preço por usuário para ${plan.officeName}:`, plan.pricePerUser.toString());
+                                                              if (newPrice) {
+                                                                  billingApi.updatePlan(plan.id, { pricePerUser: parseFloat(newPrice) })
+                                                                      .then(() => loadBilling())
+                                                                      .catch(err => alert('Erro ao atualizar'));
+                                                              }
+                                                          }}
+                                                          className="text-indigo-600 hover:text-indigo-800 font-semibold"
+                                                      >
+                                                          Editar Preço
+                                                      </button>
+                                                  </td>
+                                              </tr>
+                                          );
+                                      })
+                                  )}
+                              </tbody>
+                          </table>
+                      </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                      <div className="flex justify-between items-center mb-6">
-                          <h3 className="text-lg font-bold text-slate-800">Payment Methods</h3>
-                          <button className="text-indigo-600 text-sm font-semibold hover:underline">Add New</button>
-                      </div>
-                      <div className="flex items-center gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50">
-                          <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
-                              <CreditCard size={24} className="text-slate-700" />
+                  {/* Create Billing Plans for Offices without one */}
+                  {offices.filter(o => !billingPlans.find((p: any) => p.officeId === o.id)).length > 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                          <h4 className="font-bold text-yellow-800 mb-4">Escritórios sem plano de faturamento:</h4>
+                          <div className="space-y-2">
+                              {offices
+                                  .filter(o => !billingPlans.find((p: any) => p.officeId === o.id))
+                                  .map(office => (
+                                      <div key={office.id} className="flex justify-between items-center bg-white p-3 rounded-lg">
+                                          <span className="font-medium text-slate-800">{office.name}</span>
+                                          <button
+                                              onClick={() => {
+                                                  const price = prompt(`Definir preço por usuário para ${office.name}:`);
+                                                  if (price) {
+                                                      billingApi.createPlan({ officeId: office.id, pricePerUser: parseFloat(price) })
+                                                          .then(() => loadBilling())
+                                                          .catch(err => alert('Erro ao criar plano'));
+                                                  }
+                                              }}
+                                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
+                                          >
+                                              Criar Plano
+                                          </button>
+                                      </div>
+                                  ))}
                           </div>
-                          <div className="flex-1">
-                              <p className="font-bold text-slate-800 text-sm">Visa ending in 4242</p>
-                              <p className="text-slate-500 text-xs">Expiry 12/24</p>
-                          </div>
-                          <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Default</span>
                       </div>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                       <div className="p-6 border-b border-slate-100">
-                          <h3 className="text-lg font-bold text-slate-800">Billing History</h3>
-                       </div>
-                       <table className="w-full text-left">
-                           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                               <tr>
-                                   <th className="px-6 py-3">Invoice</th>
-                                   <th className="px-6 py-3">Date</th>
-                                   <th className="px-6 py-3">Amount</th>
-                                   <th className="px-6 py-3">Status</th>
-                                   <th className="px-6 py-3 text-right">Download</th>
-                               </tr>
-                           </thead>
-                           <tbody className="divide-y divide-slate-100 text-sm">
-                               {invoices.map(inv => (
-                                   <tr key={inv.id}>
-                                       <td className="px-6 py-4 font-medium text-slate-800">{inv.id}</td>
-                                       <td className="px-6 py-4 text-slate-500">{inv.date}</td>
-                                       <td className="px-6 py-4 font-medium">{inv.amount}</td>
-                                       <td className="px-6 py-4">
-                                           <span className={`px-2 py-1 rounded-md text-xs font-bold ${inv.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                               {inv.status}
-                                           </span>
-                                       </td>
-                                       <td className="px-6 py-4 text-right">
-                                           <button className="text-slate-400 hover:text-indigo-600 transition-colors">
-                                               <Download size={18} />
-                                           </button>
-                                       </td>
-                                   </tr>
-                               ))}
-                           </tbody>
-                       </table>
-                  </div>
+                  )}
               </div>
           )}
 
