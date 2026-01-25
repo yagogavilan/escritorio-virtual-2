@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hello-pangea/dnd": "^17.0.0",
     "axios": "^1.7.8",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
