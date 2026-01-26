@@ -10,7 +10,7 @@ import {
   Calendar as CalendarIcon, Clock, Music, Play, Pause, FileAudio, Upload, Square,
   ClipboardList, List, Kanban, TableProperties, AlertCircle, FileText, Download,
   History, ArrowRight, Tag, Palette, Shield, UserPlus as UserAdd, QrCode,
-  Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut
+  Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut, Cloud
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
 import { uploadApi, tasksApi, sectorsApi, authApi, channelsApi } from '../api/client';
@@ -105,12 +105,17 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [taskFullScreen, setTaskFullScreen] = useState(false);
 
   // --- Chat State ---
-  const [channels, setChannels] = useState<ChatChannel[]>([]); 
+  const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [chatMessageInput, setChatMessageInput] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null); 
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Chat Provider: 'native' or 'google'
+  const [chatProvider, setChatProvider] = useState<'native' | 'google'>(() => {
+    const saved = localStorage.getItem('chatProvider');
+    return (saved === 'google' || saved === 'native') ? saved : 'native';
+  });
 
   // --- Notification / Announcement State ---
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -393,6 +398,35 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const handleToggleNotifications = () => {
       setSidebarMode(prev => prev === 'notifications' ? 'hidden' : 'notifications');
       setHasNotifications(false);
+  };
+
+  const handleToggleChatProvider = () => {
+    const newProvider = chatProvider === 'native' ? 'google' : 'native';
+    setChatProvider(newProvider);
+    localStorage.setItem('chatProvider', newProvider);
+  };
+
+  const handleOpenGoogleChat = () => {
+    const email = currentUser.email;
+    const domain = email.split('@')[1];
+    const googleChatUrl = `https://chat.google.com`;
+
+    // Try opening in popup first
+    const width = 900;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+
+    const popup = window.open(
+      googleChatUrl,
+      'GoogleChat',
+      `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+    );
+
+    // Fallback to new tab if popup was blocked
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      window.open(googleChatUrl, '_blank');
+    }
   };
 
   const handleOpenChatWithUser = (user: User) => {
@@ -1290,10 +1324,29 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                  </div>
              </div>
              <div className="flex items-center gap-1">
-                 {sidebarMode === 'chat' && activeChannel && (
+                 {sidebarMode === 'chat' && (
+                     <div className="flex items-center gap-1 mr-2 px-2 py-1 bg-slate-100 rounded-lg">
+                         <button
+                             onClick={handleToggleChatProvider}
+                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${chatProvider === 'native' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                             title="Chat Nativo"
+                         >
+                             Nativo
+                         </button>
+                         <button
+                             onClick={handleToggleChatProvider}
+                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'google' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                             title="Google Chat"
+                         >
+                             <Cloud size={14} />
+                             Google
+                         </button>
+                     </div>
+                 )}
+                 {sidebarMode === 'chat' && activeChannel && chatProvider === 'native' && (
                      <button onClick={() => setShowAddPeopleModal(true)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 mr-2" title="Adicionar Pessoas"><UserPlus size={18} /></button>
                  )}
-                 {sidebarMode === 'chat' && (
+                 {sidebarMode === 'chat' && chatProvider === 'native' && (
                      <button onClick={() => setChatFullScreen(!chatFullScreen)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500" title="Tela Cheia">
                          {chatFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                      </button>
@@ -1320,7 +1373,48 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
          </div>
 
          <div className="flex-1 flex overflow-hidden">
-             {sidebarMode === 'chat' && (
+             {sidebarMode === 'chat' && chatProvider === 'google' && (
+                 <div className="w-full h-full bg-gradient-to-br from-slate-50 to-white flex flex-col items-center justify-center p-8">
+                     <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
+                         <div className="w-20 h-20 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                             <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                 <path d="M5 3v18l7-3 7 3V3H5zm6 14.5l-4 1.68V5.5h12v13.68l-4-1.68-4 2z"/>
+                             </svg>
+                         </div>
+                         <h3 className="text-2xl font-bold text-slate-800 mb-2">Google Chat</h3>
+                         <p className="text-slate-500 mb-6">Clique no botão abaixo para abrir o Google Chat em uma nova janela e continuar suas conversas.</p>
+
+                         <button
+                             onClick={handleOpenGoogleChat}
+                             className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 mb-4"
+                         >
+                             <MessageSquare size={20} />
+                             Abrir Google Chat
+                         </button>
+
+                         <div className="text-xs text-slate-400 space-y-1">
+                             <p>✓ Suas conversas do Google Workspace</p>
+                             <p>✓ Integrado com sua conta: {currentUser.email}</p>
+                             <p>✓ Abre em janela otimizada</p>
+                         </div>
+
+                         <div className="mt-6 pt-6 border-t border-slate-100">
+                             <p className="text-xs text-slate-400 mb-3">Ou experimente o iframe (pode ser bloqueado):</p>
+                             <div className="w-full h-96 border-2 border-dashed border-slate-200 rounded-xl overflow-hidden">
+                                 <iframe
+                                     src="https://chat.google.com"
+                                     className="w-full h-full"
+                                     title="Google Chat"
+                                     sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                                 />
+                             </div>
+                             <p className="text-xs text-amber-600 mt-2">⚠️ O Google pode bloquear o embed por segurança</p>
+                         </div>
+                     </div>
+                 </div>
+             )}
+
+             {sidebarMode === 'chat' && chatProvider === 'native' && (
                  <>
                     <div className={`flex flex-col bg-slate-50/50 border-r border-slate-200 overflow-y-auto transition-all w-full md:w-72 shrink-0 ${activeChannelId ? 'hidden md:flex' : 'flex'}`}>
                         <div className="p-4 space-y-2">
