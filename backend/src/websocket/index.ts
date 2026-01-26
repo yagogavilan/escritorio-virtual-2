@@ -358,7 +358,76 @@ export async function setupWebSocket(io: Server) {
       });
     });
 
+    // --- WEBRTC SIGNALING ---
+
+    socket.on('webrtc:offer', (data: { targetUserId: string; offer: any; roomId?: string }) => {
+      console.log(`[WebRTC] User ${userId} sending offer to ${data.targetUserId}`);
+      io.to(`user:${data.targetUserId}`).emit('webrtc:offer', {
+        fromUserId: userId,
+        offer: data.offer,
+        roomId: data.roomId,
+      });
+    });
+
+    socket.on('webrtc:answer', (data: { targetUserId: string; answer: any; roomId?: string }) => {
+      console.log(`[WebRTC] User ${userId} sending answer to ${data.targetUserId}`);
+      io.to(`user:${data.targetUserId}`).emit('webrtc:answer', {
+        fromUserId: userId,
+        answer: data.answer,
+        roomId: data.roomId,
+      });
+    });
+
+    socket.on('webrtc:ice-candidate', (data: { targetUserId: string; candidate: any; roomId?: string }) => {
+      console.log(`[WebRTC] User ${userId} sending ICE candidate to ${data.targetUserId}`);
+      io.to(`user:${data.targetUserId}`).emit('webrtc:ice-candidate', {
+        fromUserId: userId,
+        candidate: data.candidate,
+        roomId: data.roomId,
+      });
+    });
+
     // --- DISCONNECT ---
+
+    // Handle explicit disconnect from client (e.g., browser close)
+    socket.on('user:disconnect', async () => {
+      console.log(`[WebSocket] User ${userId} explicitly disconnecting (e.g., browser close)`);
+
+      // Remove this socket from tracking
+      const userSockets = onlineUsers.get(userId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
+      }
+
+      // Always mark as offline on explicit disconnect
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user?.currentRoomId && officeId) {
+        io.to(`office:${officeId}`).emit('room:user_left', {
+          roomId: user.currentRoomId,
+          userId,
+        });
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: 'offline', currentRoomId: null },
+      });
+
+      // Log activity
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          officeId,
+          action: 'browser_close',
+          metadata: { status: 'offline' },
+        },
+      });
+
+      // Broadcast offline only to same office
+      if (officeId) {
+        io.to(`office:${officeId}`).emit('user:offline', { userId });
+      }
+    });
 
     socket.on('disconnect', async (reason) => {
       console.log(`[WebSocket] User ${userId} disconnected. Reason: ${reason}, Socket: ${socket.id}`);

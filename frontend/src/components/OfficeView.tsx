@@ -125,7 +125,17 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartPos, setDragStartPos] = useState<{x: number, y: number} | null>(null);
+
+  // --- Task Filters State ---
+  const [taskFilters, setTaskFilters] = useState({
+    status: 'all' as 'all' | TaskStatus,
+    priority: 'all' as 'all' | 'low' | 'medium' | 'high',
+    assigneeId: 'all' as string,
+    sectorId: 'all' as string,
+    dateFrom: '' as string,
+    dateTo: '' as string,
+    searchText: '' as string
+  });
 
   // Modals
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -211,6 +221,89 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     }
   }, [office.users]);
 
+  // Carregar tarefas da API
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const response = await tasksApi.getAll();
+        setTasks(response.data);
+      } catch (error) {
+        console.error('Erro ao carregar tarefas:', error);
+      }
+    };
+
+    loadTasks();
+  }, []);
+
+  // Listeners de WebSocket para tarefas em tempo real
+  useEffect(() => {
+    const handleTaskCreated = (data: { task: Task }) => {
+      console.log('[OfficeView] Nova tarefa criada:', data.task);
+      setTasks(prev => {
+        // Evitar duplicatas
+        if (prev.find(t => t.id === data.task.id)) return prev;
+        return [data.task, ...prev];
+      });
+
+      // Notificar se foi atribuída ao usuário atual
+      if (data.task.assigneeId === currentUser.id && data.task.creatorId !== currentUser.id) {
+        setLocalNotifications(prev => [{
+          id: `notif-${Date.now()}`,
+          text: `Nova tarefa: ${data.task.title}`,
+          type: 'task',
+          timestamp: new Date(),
+          referenceId: data.task.id
+        }, ...prev]);
+      }
+    };
+
+    const handleTaskUpdated = (data: { task: Task }) => {
+      console.log('[OfficeView] Tarefa atualizada:', data.task);
+      setTasks(prev => prev.map(t => t.id === data.task.id ? data.task : t));
+    };
+
+    const handleTaskAssigned = (data: { taskId: string; assigneeId: string }) => {
+      console.log('[OfficeView] Tarefa reatribuída:', data);
+
+      // Se foi atribuída para o usuário atual
+      if (data.assigneeId === currentUser.id) {
+        // Recarregar a tarefa para ter os dados completos
+        tasksApi.get(data.taskId).then(response => {
+          const task = response.data;
+          setTasks(prev => {
+            // Adicionar ou atualizar
+            const exists = prev.find(t => t.id === task.id);
+            if (exists) {
+              return prev.map(t => t.id === task.id ? task : t);
+            } else {
+              return [task, ...prev];
+            }
+          });
+
+          setLocalNotifications(prev => [{
+            id: `notif-${Date.now()}`,
+            text: `Tarefa atribuída: ${task.title}`,
+            type: 'task',
+            timestamp: new Date(),
+            referenceId: task.id
+          }, ...prev]);
+        });
+      } else {
+        // Se foi removida do usuário atual, remover da lista
+        setTasks(prev => prev.filter(t => t.id !== data.taskId));
+      }
+    };
+
+    // Adicionar listeners (assumindo que socket tem esses eventos)
+    const taskCreatedListener = socket.on?.('task:created', handleTaskCreated);
+    const taskUpdatedListener = socket.on?.('task:updated', handleTaskUpdated);
+    const taskAssignedListener = socket.on?.('task:assigned', handleTaskAssigned);
+
+    return () => {
+      // Cleanup listeners se necessário
+    };
+  }, [currentUser.id]);
+
   const sortedChannels = useMemo(() => {
       return [...channels].sort((a, b) => {
           const dateA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -235,6 +328,65 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     });
     return grouped;
   }, [filteredUsers, office.sectors]);
+
+  // Filtrar tarefas baseado nos filtros selecionados
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // Filtro por status
+      if (taskFilters.status !== 'all' && task.status !== taskFilters.status) {
+        return false;
+      }
+
+      // Filtro por prioridade
+      if (taskFilters.priority !== 'all' && task.priority !== taskFilters.priority) {
+        return false;
+      }
+
+      // Filtro por responsável
+      if (taskFilters.assigneeId !== 'all' && task.assigneeId !== taskFilters.assigneeId) {
+        return false;
+      }
+
+      // Filtro por setor (do responsável)
+      if (taskFilters.sectorId !== 'all') {
+        const assignee = office.users.find(u => u.id === task.assigneeId);
+        if (!assignee || assignee.sectorId !== taskFilters.sectorId) {
+          return false;
+        }
+      }
+
+      // Filtro por data de criação (de)
+      if (taskFilters.dateFrom) {
+        const taskDate = new Date(task.createdAt);
+        const filterDate = new Date(taskFilters.dateFrom);
+        if (taskDate < filterDate) {
+          return false;
+        }
+      }
+
+      // Filtro por data de criação (até)
+      if (taskFilters.dateTo) {
+        const taskDate = new Date(task.createdAt);
+        const filterDate = new Date(taskFilters.dateTo);
+        filterDate.setHours(23, 59, 59, 999); // Fim do dia
+        if (taskDate > filterDate) {
+          return false;
+        }
+      }
+
+      // Filtro por texto de busca
+      if (taskFilters.searchText) {
+        const searchLower = taskFilters.searchText.toLowerCase();
+        const matchesTitle = task.title.toLowerCase().includes(searchLower);
+        const matchesDescription = task.description?.toLowerCase().includes(searchLower);
+        if (!matchesTitle && !matchesDescription) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [tasks, taskFilters, office.users]);
 
   const handleToggleChat = () => setSidebarMode(prev => prev === 'chat' ? 'hidden' : 'chat');
   const handleToggleTasks = () => setSidebarMode(prev => prev === 'tasks' ? 'hidden' : 'tasks');
@@ -351,42 +503,63 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       if (!data.scheduledFor || data.scheduledFor.getTime() <= Date.now()) setActiveAnnouncement(newAnnouncement);
   };
 
-  const handleSaveTask = (taskData: Partial<Task>) => {
-      if (editingTask) {
-          const updatedTask: Task = {
-              ...editingTask,
-              ...taskData,
-              history: [
-                  ...editingTask.history,
-                  ...(editingTask.assigneeId !== taskData.assigneeId ? [{ id: `h-${Date.now()}`, userId: currentUser.id, action: `Transferiu para ${office.users.find(u => u.id === taskData.assigneeId)?.name}`, timestamp: new Date() }] : []),
-                  ...(editingTask.status !== taskData.status ? [{ id: `h-${Date.now()}`, userId: currentUser.id, action: `Alterou status para ${TASK_STATUS_CONFIG[taskData.status as TaskStatus].label}`, timestamp: new Date() }] : [])
-              ]
-          } as Task;
-          setTasks(prev => prev.map(t => t.id === editingTask.id ? updatedTask : t));
-      } else {
-          const newTask: Task = {
-              id: `t-${Date.now()}`,
-              title: taskData.title || 'Nova Tarefa',
-              description: taskData.description || '',
-              status: taskData.status || 'todo',
-              priority: taskData.priority || 'medium',
-              assigneeId: taskData.assigneeId || currentUser.id,
-              creatorId: currentUser.id,
-              createdAt: new Date(),
-              dueDate: taskData.dueDate,
-              tags: taskData.tags || [],
-              attachments: taskData.attachments || [],
-              comments: [],
-              history: [{ id: `h-${Date.now()}`, userId: currentUser.id, action: 'Criou a tarefa', timestamp: new Date() }]
-          };
-          setTasks(prev => [newTask, ...prev]);
-      }
-      setShowTaskModal(false);
-      setEditingTask(null);
-  };
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+      try {
+          if (editingTask) {
+              // Atualizar tarefa existente
+              const response = await tasksApi.update(editingTask.id, taskData);
+              const updatedTask = response.data;
 
-  const handleMouseDown = (e: React.MouseEvent, task: Task) => {
-    setDragStartPos({ x: e.clientX, y: e.clientY });
+              // Atualizar estado local
+              setTasks(prev => prev.map(t => t.id === editingTask.id ? updatedTask : t));
+
+              // Emitir evento via WebSocket para outros usuários
+              socket.emitTaskUpdated(updatedTask);
+
+              // Se mudou o responsável, emitir evento específico
+              if (editingTask.assigneeId !== taskData.assigneeId && taskData.assigneeId) {
+                  socket.emitTaskAssigned(updatedTask.id, taskData.assigneeId);
+              }
+
+              setLocalNotifications(prev => [{
+                  id: `notif-${Date.now()}`,
+                  text: 'Tarefa atualizada com sucesso!',
+                  type: 'success',
+                  timestamp: new Date()
+              }, ...prev]);
+          } else {
+              // Criar nova tarefa
+              const response = await tasksApi.create({
+                  ...taskData,
+                  assigneeId: taskData.assigneeId || currentUser.id,
+              });
+              const newTask = response.data;
+
+              // Atualizar estado local
+              setTasks(prev => [newTask, ...prev]);
+
+              // Emitir evento via WebSocket
+              socket.emitTaskCreated(newTask);
+
+              setLocalNotifications(prev => [{
+                  id: `notif-${Date.now()}`,
+                  text: 'Tarefa criada com sucesso!',
+                  type: 'success',
+                  timestamp: new Date()
+              }, ...prev]);
+          }
+
+          setShowTaskModal(false);
+          setEditingTask(null);
+      } catch (error) {
+          console.error('Erro ao salvar tarefa:', error);
+          setLocalNotifications(prev => [{
+              id: `notif-${Date.now()}`,
+              text: 'Erro ao salvar tarefa. Tente novamente.',
+              type: 'error',
+              timestamp: new Date()
+          }, ...prev]);
+      }
   };
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
@@ -394,6 +567,13 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', task.id);
+
+    // Add a transparent drag image for better UX
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+    dragImage.style.opacity = '0.5';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -408,7 +588,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     if (!draggedTask || draggedTask.status === targetStatus) {
       setDraggedTask(null);
       setIsDragging(false);
-      setDragStartPos(null);
       return;
     }
 
@@ -430,18 +609,19 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
       setDraggedTask(null);
       setIsDragging(false);
-      setDragStartPos(null);
     } catch (error) {
       console.error('Erro ao atualizar status da tarefa:', error);
       setDraggedTask(null);
       setIsDragging(false);
-      setDragStartPos(null);
     }
   };
 
   const handleDragEnd = () => {
     setDraggedTask(null);
-    setIsDragging(false);
+    // Keep isDragging true for a moment to prevent onClick from firing
+    setTimeout(() => {
+      setIsDragging(false);
+    }, 100);
     setDragStartPos(null);
   };
 
@@ -515,24 +695,13 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const handleTaskClick = (e: React.MouseEvent, task: Task) => {
       // Não abrir modal se estiver fazendo ou acabou de fazer drag
       if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
       setEditingTask(task);
       setShowTaskModal(true);
-      setDragStartPos(null);
-  };
-
-  const handleTaskMouseUp = (e: React.MouseEvent, task: Task) => {
-      // Só abre se não está arrastando e não arrastou
-      if (!isDragging && dragStartPos) {
-        const moved = Math.abs(e.clientX - dragStartPos.x) > 5 || Math.abs(e.clientY - dragStartPos.y) > 5;
-        if (!moved) {
-          setEditingTask(task);
-          setShowTaskModal(true);
-        }
-      }
-      setDragStartPos(null);
   };
 
   const handleNotificationClick = (notif: typeof localNotifications[0]) => {
@@ -552,6 +721,19 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       setOutgoingCall({ targetUser, type });
       // Emit WebSocket event - will be handled by parent component
       // For now, just show the modal
+  };
+
+  // --- Enter User Room Directly ---
+  const handleEnterUserRoom = (targetUser: User) => {
+      // Se o usuário estiver ocupado ou em reunião, faz ligação normal
+      if (targetUser.status === 'busy' || targetUser.status === 'in_meeting') {
+          handleInitiateCall(targetUser, 'video');
+          return;
+      }
+
+      // Se o usuário estiver disponível, entra direto na sala
+      // Usa onStartCall para abrir o VideoModal
+      onStartCall(targetUser);
   };
 
   const handleAcceptCall = () => {
@@ -818,8 +1000,21 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
                 {/* Listagem de colaboradores - sempre visíveis, segmentados por setor */}
                 <div className="space-y-6">
-                    {office.sectors.map((sector) => {
-                        const sectorUsers = filteredUsers.filter(u => u.sectorId === sector.id);
+                    {office.sectors
+                        .filter(sector => selectedSector === 'all' || sector.id === selectedSector)
+                        .map((sector) => {
+                        const sectorUsers = filteredUsers
+                            .filter(u => u.sectorId === sector.id)
+                            .sort((a, b) => {
+                                // Usuário logado sempre primeiro
+                                if (a.id === currentUser.id) return -1;
+                                if (b.id === currentUser.id) return 1;
+                                // Depois ordena por status (online primeiro)
+                                if (a.status === 'online' && b.status !== 'online') return -1;
+                                if (a.status !== 'online' && b.status === 'online') return 1;
+                                // Por último ordena alfabeticamente
+                                return a.name.localeCompare(b.name);
+                            });
                         if (sectorUsers.length === 0) return null;
 
                             const onlineCount = sectorUsers.filter(u => u.status !== 'offline').length;
@@ -915,11 +1110,11 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                                         <Phone size={13}/>
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => handleInitiateCall(user, 'video')}
+                                                                        onClick={() => handleEnterUserRoom(user)}
                                                                         className="flex-1 py-2 px-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md hover:shadow-lg hover:scale-105"
-                                                                        title="Chamada de vídeo"
+                                                                        title={isBusy ? "Ligar (usuário ocupado)" : "Entrar na sala"}
                                                                     >
-                                                                        <Video size={12}/> Ligar
+                                                                        <Video size={12}/> {isBusy ? 'Ligar' : 'Entrar'}
                                                                     </button>
                                                                 </>
                                                             )}
@@ -933,9 +1128,20 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                             );
                         })}
 
-                    {/* Usuários sem setor atribuído */}
-                    {(() => {
-                        const usersWithoutSector = filteredUsers.filter(u => !u.sectorId || !office.sectors.find(s => s.id === u.sectorId));
+                    {/* Usuários sem setor atribuído - só mostrar se filtro estiver em "Todos" */}
+                    {selectedSector === 'all' && (() => {
+                        const usersWithoutSector = filteredUsers
+                            .filter(u => !u.sectorId || !office.sectors.find(s => s.id === u.sectorId))
+                            .sort((a, b) => {
+                                // Usuário logado sempre primeiro
+                                if (a.id === currentUser.id) return -1;
+                                if (b.id === currentUser.id) return 1;
+                                // Depois ordena por status (online primeiro)
+                                if (a.status === 'online' && b.status !== 'online') return -1;
+                                if (a.status !== 'online' && b.status === 'online') return 1;
+                                // Por último ordena alfabeticamente
+                                return a.name.localeCompare(b.name);
+                            });
                         if (usersWithoutSector.length === 0) return null;
 
                         return (
@@ -1021,9 +1227,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                                     <Phone size={12}/>
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleInitiateCall(user, 'video')}
+                                                                    onClick={() => handleEnterUserRoom(user)}
                                                                     className="flex-1 py-1.5 px-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 transition-all flex items-center justify-center gap-1 font-bold text-[10px] shadow-md hover:shadow-lg hover:scale-105"
-                                                                    title="Chamada de vídeo"
+                                                                    title={isBusy ? "Ligar (usuário ocupado)" : "Entrar na sala"}
                                                                 >
                                                                     <Video size={12}/> Ligar
                                                                 </button>
@@ -1326,7 +1532,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                                   const assignee = office.users.find(u => u.id === task.assigneeId);
                                                   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
                                                   return (
-                                                     <div key={task.id} onMouseDown={(e) => handleMouseDown(e, task)} onClick={(e) => handleTaskClick(e, task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
+                                                     <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
                                                          <div className="flex justify-between items-start mb-3">
                                                              <div className="flex gap-1">
                                                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TASK_PRIORITY_CONFIG[task.priority].color}`}>{TASK_PRIORITY_CONFIG[task.priority].label}</span>

@@ -72,6 +72,9 @@ export default function App() {
       ...prev,
       users: prev.users.map(u => u.id === data.userId ? { ...u, status: 'online' as UserStatus } : u)
     }));
+
+    // Atualizar currentUser se for o próprio usuário
+    setCurrentUser(prev => prev && prev.id === data.userId ? { ...prev, status: 'online' as UserStatus } : prev);
   }, []);
 
   const handleUserOffline = useCallback((data: { userId: string }) => {
@@ -80,6 +83,9 @@ export default function App() {
       ...prev,
       users: prev.users.map(u => u.id === data.userId ? { ...u, status: 'offline' as UserStatus } : u)
     }));
+
+    // Atualizar currentUser se for o próprio usuário
+    setCurrentUser(prev => prev && prev.id === data.userId ? { ...prev, status: 'offline' as UserStatus } : prev);
   }, []);
 
   const handleUserStatusChanged = useCallback((data: { userId: string; status: string; statusMessage?: string; currentRoomId?: string | null }) => {
@@ -92,6 +98,14 @@ export default function App() {
         currentRoomId: data.currentRoomId || undefined
       } : u)
     }));
+
+    // Atualizar currentUser se for o próprio usuário
+    setCurrentUser(prev => prev && prev.id === data.userId ? {
+      ...prev,
+      status: data.status as UserStatus,
+      statusMessage: data.statusMessage,
+      currentRoomId: data.currentRoomId || undefined
+    } : prev);
   }, []);
 
   const handleRoomUserJoined = useCallback((data: { roomId: string; userId: string }) => {
@@ -404,8 +418,16 @@ export default function App() {
 
       setCurrentUser(prev => prev ? { ...prev, status: 'in-meeting', currentRoomId: room.id } : null);
 
-      const participantsIds = [...room.participants];
-      const participants = officeData.users.filter(u => participantsIds.includes(u.id) && u.id !== currentUser.id);
+      // Pega todos os participantes atuais da sala, incluindo os que já estavam lá
+      const allParticipantsIds = [...new Set([...room.participants, currentUser.id])];
+      const participants = officeData.users.filter(u => allParticipantsIds.includes(u.id) && u.id !== currentUser.id);
+
+      console.log('[App] Entering room:', {
+        roomId: room.id,
+        roomName: room.name,
+        participantsCount: participants.length,
+        participantIds: participants.map(p => p.id)
+      });
 
       setActiveCall({
         roomName: room.name,

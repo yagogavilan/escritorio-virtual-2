@@ -32,16 +32,28 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
   }, async (request) => {
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
     const { status, assigneeId } = request.query as { status?: string; assigneeId?: string };
 
+    // CRITICAL: Filter tasks by office
+    const whereClause: any = {};
+
+    // Add office filter - master can see all, others only their office
+    if (currentUser.role !== 'master') {
+      whereClause.assignee = {
+        officeId: currentUser.officeId || null,
+      };
+    }
+
+    // Add additional filters
+    if (status) whereClause.status = status as any;
+    if (assigneeId) whereClause.assigneeId = assigneeId;
+
     const tasks = await prisma.task.findMany({
-      where: {
-        ...(status ? { status: status as any } : {}),
-        ...(assigneeId ? { assigneeId } : {}),
-      },
+      where: whereClause,
       include: {
         creator: { select: { id: true, name: true, avatar: true } },
-        assignee: { select: { id: true, name: true, avatar: true } },
+        assignee: { select: { id: true, name: true, avatar: true, officeId: true } },
         comments: {
           take: 3,
           orderBy: { createdAt: 'desc' },
@@ -78,12 +90,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
     const task = await prisma.task.findUnique({
       where: { id },
       include: {
         creator: { select: { id: true, name: true, avatar: true } },
-        assignee: { select: { id: true, name: true, avatar: true } },
+        assignee: { select: { id: true, name: true, avatar: true, officeId: true } },
         comments: {
           orderBy: { createdAt: 'asc' },
           include: {
@@ -100,6 +113,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     if (!task) {
       return reply.status(404).send({ error: 'Task not found' });
+    }
+
+    // CRITICAL: Verify task belongs to user's office
+    if (currentUser.role !== 'master' && task.assignee?.officeId !== currentUser.officeId) {
+      return reply.status(403).send({ error: 'Acesso negado. Você não pode visualizar tarefas de outro escritório.' });
     }
 
     return {

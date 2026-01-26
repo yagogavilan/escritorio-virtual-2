@@ -12,15 +12,25 @@ export async function inviteRoutes(fastify: FastifyInstance) {
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
   }, async (request, reply) => {
-    const currentUser = request.user as { role: string };
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
     if (!['admin', 'master'].includes(currentUser.role)) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
+    // CRITICAL: Filter invites by office
+    const whereClause: any = {};
+    if (currentUser.role !== 'master') {
+      // Only show invites from users in the same office
+      whereClause.creator = {
+        officeId: currentUser.officeId || null,
+      };
+    }
+
     const invites = await prisma.visitorInvite.findMany({
+      where: whereClause,
       include: {
-        creator: { select: { id: true, name: true } },
+        creator: { select: { id: true, name: true, officeId: true } },
         usedBy: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },

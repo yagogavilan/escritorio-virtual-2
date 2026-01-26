@@ -154,10 +154,42 @@ export function useSocket(options: UseSocketOptions = {}, forceReconnectKey?: st
       callbacksRef.current.onCallEnded?.(data);
     });
 
+    // Handle browser/tab close
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log('[Socket] Browser closing, emitting user:disconnect');
+      // Emit disconnect event to server
+      socket.emit('user:disconnect');
+      // Disconnect socket immediately
+      socket.disconnect();
+      // Remove token to force logout on next load
+      localStorage.removeItem('token');
+    };
+
+    // Handle visibility change (when user switches tabs or minimizes)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('[Socket] Page hidden');
+        // Optionally emit away status
+        socket.emit('user:status_change', { status: 'away' });
+      } else {
+        console.log('[Socket] Page visible');
+        // User is back
+        socket.emit('user:status_change', { status: 'online' });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Cleanup
     return () => {
       console.log('[Socket] Cleanup called! Stack trace:', new Error().stack);
       console.log('[Socket] forceReconnectKey:', forceReconnectKey);
+
+      // Remove event listeners
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+
       socket.disconnect();
       socketRef.current = null;
     };

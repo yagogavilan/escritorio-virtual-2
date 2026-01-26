@@ -102,6 +102,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Handle browser close - ensure logout
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear auth tokens on browser close
+      // This ensures the user is fully logged out
+      // The socket will handle the disconnect event
+      localStorage.removeItem('token');
+      localStorage.removeItem('masterToken');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{

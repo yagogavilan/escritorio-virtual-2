@@ -24,17 +24,39 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // Get office settings
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
-  }, async () => {
-    let office = await prisma.office.findFirst();
+  }, async (request, reply) => {
+    const currentUser = request.user as { id: string; role: string; officeId?: string | null };
 
-    if (!office) {
-      office = await prisma.office.create({
-        data: {
-          name: 'Nexus Office',
-          logo: '',
-          primaryColor: '#3b82f6',
-        },
+    // CRITICAL: Only return the user's office, never another office!
+    let office = null;
+
+    if (currentUser.officeId) {
+      // User has an office - return only THEIR office
+      office = await prisma.office.findUnique({
+        where: { id: currentUser.officeId },
       });
+
+      if (!office) {
+        return reply.status(404).send({
+          error: 'Escritório não encontrado. Contate o administrador.'
+        });
+      }
+    } else {
+      // User has NO office (master/demo) - return demo office
+      office = await prisma.office.findFirst({
+        where: { name: 'Demo Office' },
+      });
+
+      if (!office) {
+        // Create demo office if doesn't exist
+        office = await prisma.office.create({
+          data: {
+            name: 'Demo Office',
+            logo: '',
+            primaryColor: '#3b82f6',
+          },
+        });
+      }
     }
 
     return {
