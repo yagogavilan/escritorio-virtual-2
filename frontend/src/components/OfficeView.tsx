@@ -116,9 +116,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     const saved = localStorage.getItem('chatProvider');
     return (saved === 'google' || saved === 'native' || saved === 'rocketchat') ? saved : 'native';
   });
-  // Rocket.Chat server URL (configurable)
+  // Rocket.Chat server URL (uses office default, but user can customize)
   const [rocketChatUrl, setRocketChatUrl] = useState<string>(() => {
-    return localStorage.getItem('rocketChatUrl') || 'https://open.rocket.chat';
+    return office.chatFeatures?.rocketChatUrl || 'https://open.rocket.chat';
   });
 
   // --- Notification / Announcement State ---
@@ -1341,22 +1341,26 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                          >
                              Nativo
                          </button>
-                         <button
-                             onClick={() => handleSelectChatProvider('google')}
-                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'google' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                             title="Google Chat"
-                         >
-                             <Cloud size={14} />
-                             Google
-                         </button>
-                         <button
-                             onClick={() => handleSelectChatProvider('rocketchat')}
-                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'rocketchat' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                             title="Rocket.Chat"
-                         >
-                             <Rocket size={14} />
-                             Rocket
-                         </button>
+                         {office.chatFeatures?.enableGoogleChat && (
+                             <button
+                                 onClick={() => handleSelectChatProvider('google')}
+                                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'google' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                 title="Google Chat"
+                             >
+                                 <Cloud size={14} />
+                                 Google
+                             </button>
+                         )}
+                         {office.chatFeatures?.enableRocketChat && (
+                             <button
+                                 onClick={() => handleSelectChatProvider('rocketchat')}
+                                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'rocketchat' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                 title="Rocket.Chat"
+                             >
+                                 <Rocket size={14} />
+                                 Rocket
+                             </button>
+                         )}
                      </div>
                  )}
                  {sidebarMode === 'chat' && activeChannel && chatProvider === 'native' && (

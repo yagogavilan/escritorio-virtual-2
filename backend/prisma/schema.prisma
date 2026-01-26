@@ -100,6 +100,11 @@ model Office {
   workingHoursStart   String  @default("08:00")
   workingHoursEnd     String  @default("18:00")
 
+  // Chat Features
+  enableGoogleChat   Boolean @default(false)
+  enableRocketChat   Boolean @default(false)
+  rocketChatUrl      String  @default("https://open.rocket.chat")
+
   users         User[]
   sectors       Sector[]
   rooms         Room[]

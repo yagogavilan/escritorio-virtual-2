@@ -28,6 +28,9 @@ interface OfficeData {
   workingHoursEnabled?: boolean;
   workingHoursStart?: string;
   workingHoursEnd?: string;
+  enableGoogleChat?: boolean;
+  enableRocketChat?: boolean;
+  rocketChatUrl?: string;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnterDemo, onImpersonate }) => {
@@ -84,6 +87,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
         workingHoursEnabled: office.workingHours?.enabled,
         workingHoursStart: office.workingHours?.start,
         workingHoursEnd: office.workingHours?.end,
+        enableGoogleChat: office.chatFeatures?.enableGoogleChat,
+        enableRocketChat: office.chatFeatures?.enableRocketChat,
+        rocketChatUrl: office.chatFeatures?.rocketChatUrl,
       }));
 
       // Load users
@@ -775,6 +781,9 @@ interface CreateOfficeModalProps {
     workingHoursEnabled?: boolean;
     workingHoursStart?: string;
     workingHoursEnd?: string;
+    enableGoogleChat?: boolean;
+    enableRocketChat?: boolean;
+    rocketChatUrl?: string;
   }) => void;
 }
 
@@ -945,6 +954,9 @@ interface EditOfficeModalProps {
     workingHoursEnabled?: boolean;
     workingHoursStart?: string;
     workingHoursEnd?: string;
+    enableGoogleChat?: boolean;
+    enableRocketChat?: boolean;
+    rocketChatUrl?: string;
   }) => void;
 }
 
@@ -955,6 +967,9 @@ const EditOfficeModal: React.FC<EditOfficeModalProps> = ({ office, onClose, onSa
   const [workingHoursEnabled, setWorkingHoursEnabled] = useState(office.workingHoursEnabled || false);
   const [workingHoursStart, setWorkingHoursStart] = useState(office.workingHoursStart || '09:00');
   const [workingHoursEnd, setWorkingHoursEnd] = useState(office.workingHoursEnd || '18:00');
+  const [enableGoogleChat, setEnableGoogleChat] = useState(office.enableGoogleChat || false);
+  const [enableRocketChat, setEnableRocketChat] = useState(office.enableRocketChat || false);
+  const [rocketChatUrl, setRocketChatUrl] = useState(office.rocketChatUrl || 'https://open.rocket.chat');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -973,6 +988,9 @@ const EditOfficeModal: React.FC<EditOfficeModalProps> = ({ office, onClose, onSa
         workingHoursEnabled,
         workingHoursStart: workingHoursEnabled ? workingHoursStart : undefined,
         workingHoursEnd: workingHoursEnabled ? workingHoursEnd : undefined,
+        enableGoogleChat,
+        enableRocketChat,
+        rocketChatUrl: enableRocketChat ? rocketChatUrl : undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -1081,6 +1099,52 @@ const EditOfficeModal: React.FC<EditOfficeModalProps> = ({ office, onClose, onSa
               </div>
             </div>
           )}
+
+          <div className="border-t border-slate-200 pt-4 space-y-4">
+            <h4 className="text-sm font-bold text-slate-700 mb-3">Recursos de Chat</h4>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableGoogleChat}
+                onChange={(e) => setEnableGoogleChat(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-semibold text-slate-700">
+                Habilitar Google Chat
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableRocketChat}
+                onChange={(e) => setEnableRocketChat(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-semibold text-slate-700">
+                Habilitar Rocket.Chat
+              </span>
+            </label>
+
+            {enableRocketChat && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  URL do Servidor Rocket.Chat
+                </label>
+                <input
+                  type="url"
+                  value={rocketChatUrl}
+                  onChange={(e) => setRocketChatUrl(e.target.value)}
+                  placeholder="https://open.rocket.chat"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  URL do servidor Rocket.Chat a ser utilizado (padrão: https://open.rocket.chat)
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3 pt-4">
             <button

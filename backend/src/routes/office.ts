@@ -9,6 +9,9 @@ const createOfficeSchema = z.object({
   workingHoursEnabled: z.boolean().optional(),
   workingHoursStart: z.string().optional(),
   workingHoursEnd: z.string().optional(),
+  enableGoogleChat: z.boolean().optional(),
+  enableRocketChat: z.boolean().optional(),
+  rocketChatUrl: z.string().optional(),
 });
 
 const updateOfficeSchema = z.object({
@@ -18,6 +21,9 @@ const updateOfficeSchema = z.object({
   workingHoursEnabled: z.boolean().optional(),
   workingHoursStart: z.string().optional(),
   workingHoursEnd: z.string().optional(),
+  enableGoogleChat: z.boolean().optional(),
+  enableRocketChat: z.boolean().optional(),
+  rocketChatUrl: z.string().optional(),
 });
 
 export async function officeRoutes(fastify: FastifyInstance) {
@@ -54,6 +60,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
             name: 'Demo Office',
             logo: '',
             primaryColor: '#3b82f6',
+            enableGoogleChat: false,
+            enableRocketChat: false,
+            rocketChatUrl: 'https://open.rocket.chat',
           },
         });
       }
@@ -68,6 +77,11 @@ export async function officeRoutes(fastify: FastifyInstance) {
         enabled: office.workingHoursEnabled,
         start: office.workingHoursStart,
         end: office.workingHoursEnd,
+      },
+      chatFeatures: {
+        enableGoogleChat: office.enableGoogleChat,
+        enableRocketChat: office.enableRocketChat,
+        rocketChatUrl: office.rocketChatUrl,
       },
     };
   });
@@ -98,6 +112,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
           workingHoursEnabled: result.data.workingHoursEnabled || false,
           workingHoursStart: result.data.workingHoursStart || '08:00',
           workingHoursEnd: result.data.workingHoursEnd || '18:00',
+          enableGoogleChat: result.data.enableGoogleChat || false,
+          enableRocketChat: result.data.enableRocketChat || false,
+          rocketChatUrl: result.data.rocketChatUrl || 'https://open.rocket.chat',
         },
       });
     } else {
@@ -116,6 +133,11 @@ export async function officeRoutes(fastify: FastifyInstance) {
         enabled: office.workingHoursEnabled,
         start: office.workingHoursStart,
         end: office.workingHoursEnd,
+      },
+      chatFeatures: {
+        enableGoogleChat: office.enableGoogleChat,
+        enableRocketChat: office.enableRocketChat,
+        rocketChatUrl: office.rocketChatUrl,
       },
     };
   });
@@ -152,6 +174,11 @@ export async function officeRoutes(fastify: FastifyInstance) {
         start: office.workingHoursStart,
         end: office.workingHoursEnd,
       },
+      chatFeatures: {
+        enableGoogleChat: office.enableGoogleChat,
+        enableRocketChat: office.enableRocketChat,
+        rocketChatUrl: office.rocketChatUrl,
+      },
       stats: {
         users: office._count.users,
         rooms: office._count.rooms,
@@ -183,6 +210,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
         workingHoursEnabled: result.data.workingHoursEnabled || false,
         workingHoursStart: result.data.workingHoursStart || '08:00',
         workingHoursEnd: result.data.workingHoursEnd || '18:00',
+        enableGoogleChat: result.data.enableGoogleChat || false,
+        enableRocketChat: result.data.enableRocketChat || false,
+        rocketChatUrl: result.data.rocketChatUrl || 'https://open.rocket.chat',
       },
     });
 
@@ -195,6 +225,11 @@ export async function officeRoutes(fastify: FastifyInstance) {
         enabled: office.workingHoursEnabled,
         start: office.workingHoursStart,
         end: office.workingHoursEnd,
+      },
+      chatFeatures: {
+        enableGoogleChat: office.enableGoogleChat,
+        enableRocketChat: office.enableRocketChat,
+        rocketChatUrl: office.rocketChatUrl,
       },
     };
   });
@@ -229,6 +264,11 @@ export async function officeRoutes(fastify: FastifyInstance) {
         enabled: office.workingHoursEnabled,
         start: office.workingHoursStart,
         end: office.workingHoursEnd,
+      },
+      chatFeatures: {
+        enableGoogleChat: office.enableGoogleChat,
+        enableRocketChat: office.enableRocketChat,
+        rocketChatUrl: office.rocketChatUrl,
       },
     };
   });

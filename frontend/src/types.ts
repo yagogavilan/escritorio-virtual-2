@@ -49,12 +49,19 @@ export interface VisitorInvite {
     usedBy?: string; // User ID if currently in use
 }
 
+export interface ChatFeatures {
+  enableGoogleChat: boolean;
+  enableRocketChat: boolean;
+  rocketChatUrl: string;
+}
+
 export interface Office {
   id: string;
   name: string;
   logo: string;
   primaryColor?: string; // Hex color for branding
   workingHours?: WorkingHours;
+  chatFeatures?: ChatFeatures;
   visitorInvites: VisitorInvite[];
   users: User[];
   rooms: Room[];
