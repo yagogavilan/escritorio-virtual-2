@@ -294,10 +294,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       }
     };
 
-    // Adicionar listeners (assumindo que socket tem esses eventos)
-    const taskCreatedListener = socket.on?.('task:created', handleTaskCreated);
-    const taskUpdatedListener = socket.on?.('task:updated', handleTaskUpdated);
-    const taskAssignedListener = socket.on?.('task:assigned', handleTaskAssigned);
+    // TODO: Adicionar listeners de WebSocket quando socket for passado como prop
+    // const taskCreatedListener = socket?.on('task:created', handleTaskCreated);
+    // const taskUpdatedListener = socket?.on('task:updated', handleTaskUpdated);
+    // const taskAssignedListener = socket?.on('task:assigned', handleTaskAssigned);
 
     return () => {
       // Cleanup listeners se necessário
@@ -513,12 +513,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               // Atualizar estado local
               setTasks(prev => prev.map(t => t.id === editingTask.id ? updatedTask : t));
 
-              // Emitir evento via WebSocket para outros usuários
-              socket.emitTaskUpdated(updatedTask);
+              // TODO: Emitir evento via WebSocket quando socket for passado como prop
+              // socket?.emitTaskUpdated(updatedTask);
 
               // Se mudou o responsável, emitir evento específico
               if (editingTask.assigneeId !== taskData.assigneeId && taskData.assigneeId) {
-                  socket.emitTaskAssigned(updatedTask.id, taskData.assigneeId);
+                  // socket?.emitTaskAssigned(updatedTask.id, taskData.assigneeId);
               }
 
               setLocalNotifications(prev => [{
@@ -538,8 +538,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               // Atualizar estado local
               setTasks(prev => [newTask, ...prev]);
 
-              // Emitir evento via WebSocket
-              socket.emitTaskCreated(newTask);
+              // TODO: Emitir evento via WebSocket quando socket for passado como prop
+              // socket?.emitTaskCreated(newTask);
 
               setLocalNotifications(prev => [{
                   id: `notif-${Date.now()}`,
