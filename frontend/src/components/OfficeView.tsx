@@ -10,7 +10,7 @@ import {
   Calendar as CalendarIcon, Clock, Music, Play, Pause, FileAudio, Upload, Square,
   ClipboardList, List, Kanban, TableProperties, AlertCircle, FileText, Download,
   History, ArrowRight, Tag, Palette, Shield, UserPlus as UserAdd, QrCode,
-  Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut, Cloud
+  Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut, Cloud, Rocket
 } from 'lucide-react';
 import { User, Office, Room, UserStatus, ChatChannel, ChatMessage, Announcement, Task, TaskStatus, TaskPriority, TaskAttachment, TaskComment, TaskHistory, Sector, VisitorInvite } from '../types';
 import { uploadApi, tasksApi, sectorsApi, authApi, channelsApi } from '../api/client';
@@ -111,10 +111,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Chat Provider: 'native' or 'google'
-  const [chatProvider, setChatProvider] = useState<'native' | 'google'>(() => {
+  // Chat Provider: 'native', 'google', or 'rocketchat'
+  const [chatProvider, setChatProvider] = useState<'native' | 'google' | 'rocketchat'>(() => {
     const saved = localStorage.getItem('chatProvider');
-    return (saved === 'google' || saved === 'native') ? saved : 'native';
+    return (saved === 'google' || saved === 'native' || saved === 'rocketchat') ? saved : 'native';
+  });
+  // Rocket.Chat server URL (configurable)
+  const [rocketChatUrl, setRocketChatUrl] = useState<string>(() => {
+    return localStorage.getItem('rocketChatUrl') || 'https://open.rocket.chat';
   });
 
   // --- Notification / Announcement State ---
@@ -400,10 +404,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
       setHasNotifications(false);
   };
 
-  const handleToggleChatProvider = () => {
-    const newProvider = chatProvider === 'native' ? 'google' : 'native';
-    setChatProvider(newProvider);
-    localStorage.setItem('chatProvider', newProvider);
+  const handleSelectChatProvider = (provider: 'native' | 'google' | 'rocketchat') => {
+    setChatProvider(provider);
+    localStorage.setItem('chatProvider', provider);
+  };
+
+  const handleUpdateRocketChatUrl = (url: string) => {
+    setRocketChatUrl(url);
+    localStorage.setItem('rocketChatUrl', url);
   };
 
   const handleOpenGoogleChat = () => {
@@ -1327,19 +1335,27 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                  {sidebarMode === 'chat' && (
                      <div className="flex items-center gap-1 mr-2 px-2 py-1 bg-slate-100 rounded-lg">
                          <button
-                             onClick={handleToggleChatProvider}
+                             onClick={() => handleSelectChatProvider('native')}
                              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${chatProvider === 'native' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                              title="Chat Nativo"
                          >
                              Nativo
                          </button>
                          <button
-                             onClick={handleToggleChatProvider}
+                             onClick={() => handleSelectChatProvider('google')}
                              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'google' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                              title="Google Chat"
                          >
                              <Cloud size={14} />
                              Google
+                         </button>
+                         <button
+                             onClick={() => handleSelectChatProvider('rocketchat')}
+                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${chatProvider === 'rocketchat' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                             title="Rocket.Chat"
+                         >
+                             <Rocket size={14} />
+                             Rocket
                          </button>
                      </div>
                  )}
@@ -1409,6 +1425,81 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                                  />
                              </div>
                              <p className="text-xs text-amber-600 mt-2">⚠️ O Google pode bloquear o embed por segurança</p>
+                         </div>
+                     </div>
+                 </div>
+             )}
+
+             {sidebarMode === 'chat' && chatProvider === 'rocketchat' && (
+                 <div className="w-full h-full flex flex-col bg-slate-50">
+                     {/* Header com configuração */}
+                     <div className="bg-white border-b border-slate-200 p-4 shrink-0">
+                         <div className="flex items-center gap-3 mb-3">
+                             <div className="w-12 h-12 bg-gradient-to-tr from-red-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                                 <Rocket size={24} className="text-white" />
+                             </div>
+                             <div>
+                                 <h3 className="text-lg font-bold text-slate-800">Rocket.Chat</h3>
+                                 <p className="text-xs text-slate-500">Chat open source embarcado</p>
+                             </div>
+                         </div>
+                         <div className="flex gap-2 items-center">
+                             <input
+                                 type="text"
+                                 value={rocketChatUrl}
+                                 onChange={(e) => handleUpdateRocketChatUrl(e.target.value)}
+                                 placeholder="https://seu-servidor.rocket.chat"
+                                 className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                             />
+                             <button
+                                 onClick={() => {
+                                     const iframe = document.getElementById('rocketchat-iframe') as HTMLIFrameElement;
+                                     if (iframe) iframe.src = iframe.src;
+                                 }}
+                                 className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                                 title="Recarregar"
+                             >
+                                 <RefreshCw size={18} />
+                             </button>
+                         </div>
+                         <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+                             <span className="flex items-center gap-1">
+                                 <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                 Totalmente embarcado
+                             </span>
+                             <span>•</span>
+                             <a
+                                 href="https://rocket.chat"
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="hover:text-orange-600 hover:underline"
+                             >
+                                 Saiba mais sobre Rocket.Chat
+                             </a>
+                         </div>
+                     </div>
+
+                     {/* Iframe do Rocket.Chat */}
+                     <div className="flex-1 relative bg-white">
+                         <iframe
+                             id="rocketchat-iframe"
+                             src={rocketChatUrl}
+                             className="w-full h-full border-0"
+                             title="Rocket.Chat"
+                             allow="camera; microphone; fullscreen"
+                         />
+                     </div>
+
+                     {/* Footer com dicas */}
+                     <div className="bg-slate-50 border-t border-slate-200 p-3 shrink-0">
+                         <div className="flex items-center justify-between text-xs">
+                             <div className="flex items-center gap-4 text-slate-500">
+                                 <span>💡 Dica: Configure seu servidor Rocket.Chat acima</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                 <span className="text-slate-400">Servidor padrão:</span>
+                                 <code className="px-2 py-1 bg-slate-200 rounded text-slate-700">open.rocket.chat</code>
+                             </div>
                          </div>
                      </div>
                  </div>
