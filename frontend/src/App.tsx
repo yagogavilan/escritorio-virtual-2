@@ -6,10 +6,10 @@ import { useSocket } from './hooks/useSocket';
 import { ToastContainer, Toast, useToast } from './components/ToastNotification';
 
 // Lazy load heavy components for better initial load performance
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const OfficeView = lazy(() => import('./components/OfficeView').then(m => ({ default: m.OfficeView })));
-const VideoModal = lazy(() => import('./components/VideoModal').then(m => ({ default: m.VideoModal })));
-const MediaPreviewModal = lazy(() => import('./components/MediaPreviewModal').then(m => ({ default: m.MediaPreviewModal })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const OfficeView = lazy(() => import('./components/OfficeView').then(module => ({ default: module.OfficeView })));
+const VideoModal = lazy(() => import('./components/VideoModal').then(module => ({ default: module.VideoModal })));
+const MediaPreviewModal = lazy(() => import('./components/MediaPreviewModal').then(module => ({ default: module.MediaPreviewModal })));
 
 // Loading component for Suspense fallback
 const ComponentLoader = () => (
