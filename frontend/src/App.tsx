@@ -1,11 +1,25 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AdminDashboard } from './components/AdminDashboard';
-import { OfficeView } from './components/OfficeView';
-import { VideoModal } from './components/VideoModal';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { User, UserStatus, Room, Office, VisitorInvite, Sector } from './types';
 import { ArrowRight, Layers, LayoutGrid, ShieldCheck, Phone, PhoneIncoming, X, Check, Clock, Lock, Ticket, Briefcase, Loader2, UserCircle } from 'lucide-react';
 import { authApi, usersApi, officeApi, sectorsApi, roomsApi, invitesApi } from './api/client';
 import { useSocket } from './hooks/useSocket';
+import { ToastContainer, Toast, useToast } from './components/ToastNotification';
+
+// Lazy load heavy components for better initial load performance
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const OfficeView = lazy(() => import('./components/OfficeView').then(m => ({ default: m.OfficeView })));
+const VideoModal = lazy(() => import('./components/VideoModal').then(m => ({ default: m.VideoModal })));
+const MediaPreviewModal = lazy(() => import('./components/MediaPreviewModal').then(m => ({ default: m.MediaPreviewModal })));
+
+// Loading component for Suspense fallback
+const ComponentLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+      <p className="text-slate-400">Carregando componente...</p>
+    </div>
+  </div>
+);
 
 const MASTER_EMAIL = import.meta.env.VITE_MASTER_EMAIL || 'admin@example.com';
 
@@ -33,8 +47,14 @@ export default function App() {
 
   const [activeCall, setActiveCall] = useState<{ roomName: string, participants: User[], roomId?: string } | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ caller: User, roomId?: string } | null>(null);
+  const [pendingRoomJoin, setPendingRoomJoin] = useState<Room | null>(null);
 
-  const [notifications, setNotifications] = useState<{ id: string, message: string, type?: 'info' | 'error' }[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toast = useToast(setToasts);
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Audio refs
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
@@ -129,14 +149,12 @@ export default function App() {
   }, []);
 
   const handleRoomKnocked = useCallback((data: { roomId: string; user: { id: string; name: string; avatar: string } }) => {
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, message: `${data.user.name} bateu na porta...`, type: 'info' }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
+    toast.info(`${data.user.name} bateu na porta...`);
 
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3');
     audio.volume = 0.5;
     audio.play().catch(() => {});
-  }, []);
+  }, [toast]);
 
   const handleCallIncoming = useCallback((data: { callerId: string; type: 'audio' | 'video' }) => {
     const caller = officeData.users.find(u => u.id === data.callerId);
@@ -146,14 +164,8 @@ export default function App() {
   }, [officeData.users]);
 
   const handleTaskMentioned = useCallback((data: { taskId: string; taskTitle: string; commentId: string; mentionedBy: string; mentionedByName: string }) => {
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, {
-      id,
-      message: `${data.mentionedByName} mencionou você em "${data.taskTitle}"`,
-      type: 'info'
-    }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
-  }, []);
+    toast.info(`${data.mentionedByName} mencionou você em "${data.taskTitle}"`);
+  }, [toast]);
 
   // Socket reconnection key (changes when token changes to force reconnect)
   const [socketReconnectKey, setSocketReconnectKey] = useState(Date.now().toString());
@@ -397,6 +409,14 @@ export default function App() {
 
   const handleEnterRoom = async (room: Room) => {
     if (!currentUser) return;
+    // Mostrar preview de mídia antes de entrar
+    setPendingRoomJoin(room);
+  };
+
+  const handleConfirmRoomJoin = async () => {
+    if (!currentUser || !pendingRoomJoin) return;
+
+    const room = pendingRoomJoin;
 
     try {
       await roomsApi.join(room.id);
@@ -434,8 +454,12 @@ export default function App() {
         participants: participants,
         roomId: room.id
       });
+
+      setPendingRoomJoin(null);
     } catch (err) {
       console.error('Failed to join room:', err);
+      toast.error('Erro ao entrar na sala. Tente novamente.');
+      setPendingRoomJoin(null);
     }
   };
 
@@ -545,9 +569,7 @@ export default function App() {
       socket.knockRoom(target.currentRoomId);
     }
 
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, message: `Toc toc em ${target.name}...`, type: 'info' }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
+    toast.info(`Toc toc em ${target.name}...`);
 
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3');
     audio.volume = 0.5;
@@ -598,9 +620,7 @@ export default function App() {
 
   const handleInviteUsers = (usersToInvite: User[]) => {
     const names = usersToInvite.map(u => u.name).join(', ');
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, message: `Convidando: ${names}...`, type: 'info' }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
+    toast.info(`Convidando: ${names}...`);
 
     usersToInvite.forEach(user => {
       socket.initiateCall(user.id, 'video');
@@ -900,11 +920,13 @@ export default function App() {
   // Render Admin
   if (currentView === 'admin') {
     return (
-      <AdminDashboard
-        onLogout={handleLogout}
-        onEnterDemo={handleEnterDemoFromAdmin}
-        onImpersonate={handleImpersonate}
-      />
+      <Suspense fallback={<ComponentLoader />}>
+        <AdminDashboard
+          onLogout={handleLogout}
+          onEnterDemo={handleEnterDemoFromAdmin}
+          onImpersonate={handleImpersonate}
+        />
+      </Suspense>
     );
   }
 
@@ -941,35 +963,50 @@ export default function App() {
         </button>
       </div>
 
-      <OfficeView
-        office={officeData}
-        currentUser={currentUser!}
-        onLogout={handleLogout}
-        onStartCall={handleStartCall}
-        onEnterRoom={handleEnterRoom}
-        onUpdateStatus={handleUpdateStatus}
-        onKnock={handleKnock}
-        onCreateRoom={handleCreateRoom}
-        onDeleteRoom={handleDeleteRoom}
-        onUpdateOffice={handleUpdateOffice}
-        onUpdateUser={handleUpdateUser}
-        onCreateUser={handleCreateUser}
-        onDeleteUser={handleDeleteUser}
-        onCreateInvite={handleCreateInvite}
-        onCreateSector={handleCreateSector}
-        onUpdateSector={handleUpdateSector}
-        onDeleteSector={handleDeleteSector}
-      />
+      <Suspense fallback={<ComponentLoader />}>
+        <OfficeView
+          office={officeData}
+          currentUser={currentUser!}
+          onLogout={handleLogout}
+          onStartCall={handleStartCall}
+          onEnterRoom={handleEnterRoom}
+          onUpdateStatus={handleUpdateStatus}
+          onKnock={handleKnock}
+          onCreateRoom={handleCreateRoom}
+          onDeleteRoom={handleDeleteRoom}
+          onUpdateOffice={handleUpdateOffice}
+          onUpdateUser={handleUpdateUser}
+          onCreateUser={handleCreateUser}
+          onDeleteUser={handleDeleteUser}
+          onCreateInvite={handleCreateInvite}
+          onCreateSector={handleCreateSector}
+          onUpdateSector={handleUpdateSector}
+          onDeleteSector={handleDeleteSector}
+        />
+      </Suspense>
+
+      {/* Media Preview Modal */}
+      {pendingRoomJoin && (
+        <Suspense fallback={<ComponentLoader />}>
+          <MediaPreviewModal
+            roomName={pendingRoomJoin.name}
+            onJoin={handleConfirmRoomJoin}
+            onCancel={() => setPendingRoomJoin(null)}
+          />
+        </Suspense>
+      )}
 
       {activeCall && (
-        <VideoModal
-          currentUser={currentUser!}
-          participants={activeCall.participants}
-          roomName={activeCall.roomName}
-          allUsers={officeData.users}
-          onLeave={handleLeaveCall}
-          onInvite={handleInviteUsers}
-        />
+        <Suspense fallback={<ComponentLoader />}>
+          <VideoModal
+            currentUser={currentUser!}
+            participants={activeCall.participants}
+            roomName={activeCall.roomName}
+            allUsers={officeData.users}
+            onLeave={handleLeaveCall}
+            onInvite={handleInviteUsers}
+          />
+        </Suspense>
       )}
 
       {/* Incoming Call Overlay */}
@@ -1015,20 +1052,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Notifications Toast */}
-      <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-3">
-        {notifications.map(n => (
-          <div key={n.id} className={`bg-white/90 backdrop-blur-md border shadow-2xl p-4 rounded-2xl flex items-center gap-4 animate-in slide-in-from-right-10 fade-in duration-300 max-w-sm ${n.type === 'error' ? 'border-red-200' : 'border-indigo-100'}`}>
-            <span className={`text-xl p-2 rounded-xl ${n.type === 'error' ? 'bg-red-100' : 'bg-indigo-100'}`}>
-              {n.type === 'error' ? '🚫' : '👋'}
-            </span>
-            <div>
-              <p className="text-slate-800 font-bold text-sm">{n.type === 'error' ? 'Ops!' : 'Notificação'}</p>
-              <p className="text-slate-600 text-sm">{n.message}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
   );
 }
