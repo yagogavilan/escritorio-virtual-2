@@ -4,7 +4,7 @@ import {
   VideoOff,
   Mic,
   MicOff,
-  Settings,
+  SlidersHorizontal,
   AlertCircle,
   RefreshCw,
   Maximize2,
@@ -69,28 +69,28 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
   return (
     <>
-      {/* Compact Layout - Square preview on left, controls on right */}
-      <div className="flex items-center gap-2 p-2 border-t border-slate-100 bg-slate-50/50">
-        {/* Square Video Preview - Left Side */}
+      {/* Compact Layout - Larger square preview on left, vertical controls on right */}
+      <div className="flex items-center gap-2.5 p-3 border-t border-slate-100 bg-slate-50/50">
+        {/* Larger Square Video Preview - Left Side */}
         <div
-          className="relative bg-slate-800 rounded-lg overflow-hidden group cursor-pointer flex-shrink-0 w-14 h-14"
+          className="relative bg-slate-800 rounded-xl overflow-hidden group cursor-pointer flex-shrink-0 w-20 h-20 shadow-md"
           onClick={() => setIsExpanded(true)}
         >
           {isInitializing && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
             </div>
           )}
 
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <AlertCircle size={14} className="text-red-400" />
+              <AlertCircle size={18} className="text-red-400" />
             </div>
           )}
 
           {!isInitializing && !error && (isCameraOff || !localStream) && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <VideoOff size={18} className="text-slate-500" />
+              <VideoOff size={24} className="text-slate-500" />
             </div>
           )}
 
@@ -106,59 +106,56 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
           {/* Expand Icon on Hover */}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-            <Maximize2 size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Maximize2 size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
           {/* Muted Indicator */}
           {isMuted && isInitialized && (
-            <div className="absolute top-0.5 right-0.5 bg-red-500/90 p-0.5 rounded">
-              <MicOff size={8} className="text-white" />
+            <div className="absolute top-1 right-1 bg-red-500/90 p-0.5 rounded">
+              <MicOff size={10} className="text-white" />
             </div>
           )}
 
           {/* Status Dot */}
           {isInitialized && (
-            <div className={`absolute bottom-0.5 left-0.5 w-2 h-2 rounded-full ${STATUS_CONFIG[currentUserStatus].color} ring-1 ring-white`}></div>
+            <div className={`absolute bottom-1 left-1 w-2 h-2 rounded-full ${STATUS_CONFIG[currentUserStatus].color} ring-1 ring-white`}></div>
           )}
         </div>
 
-        {/* Controls - Right Side */}
-        <div className="flex-1 flex gap-1.5">
+        {/* Vertical Controls - Right Side */}
+        <div className="flex flex-col gap-1">
           <button
             onClick={toggleMute}
             disabled={!isInitialized}
-            className={`flex-1 p-2 rounded-lg transition-all text-[10px] font-semibold flex flex-col items-center justify-center gap-0.5 ${
+            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${
               isMuted
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
             } disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90`}
             title={isMuted ? 'Desmutar' : 'Mutar'}
           >
-            {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
-            <span className="hidden md:inline text-[8px]">Mic</span>
+            {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
           </button>
 
           <button
             onClick={toggleCamera}
             disabled={!isInitialized}
-            className={`flex-1 p-2 rounded-lg transition-all text-[10px] font-semibold flex flex-col items-center justify-center gap-0.5 ${
+            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${
               isCameraOff
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
             } disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90`}
             title={isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
           >
-            {isCameraOff ? <VideoOff size={14} /> : <Video size={14} />}
-            <span className="hidden md:inline text-[8px]">Cam</span>
+            {isCameraOff ? <VideoOff size={13} /> : <Video size={13} />}
           </button>
 
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="flex-1 p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex flex-col items-center justify-center gap-0.5"
-            title="Configurações"
+            className="p-1.5 rounded-md bg-slate-600 text-white hover:bg-slate-500 transition-colors flex items-center justify-center"
+            title="Dispositivos"
           >
-            <Settings size={14} />
-            <span className="hidden md:inline text-[8px] font-medium">Config</span>
+            <SlidersHorizontal size={13} />
           </button>
         </div>
       </div>
