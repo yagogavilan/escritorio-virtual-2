@@ -986,6 +986,7 @@ export default function App() {
           onCreateSector={handleCreateSector}
           onUpdateSector={handleUpdateSector}
           onDeleteSector={handleDeleteSector}
+          hasMinimizedCall={isCallMinimized}
         />
       </Suspense>
 

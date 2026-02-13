@@ -37,6 +37,8 @@ interface OfficeViewProps {
   onCreateSector?: (sectorData: { name: string; color: string }) => Promise<void>;
   onUpdateSector?: (sectorId: string, sectorData: { name: string; color: string }) => Promise<void>;
   onDeleteSector?: (sectorId: string) => Promise<void>;
+  // Minimized call state
+  hasMinimizedCall?: boolean;
 }
 
 const STATUS_CONFIG = {
@@ -89,7 +91,8 @@ const getUserAvatar = (user: User): string => {
 export const OfficeView: React.FC<OfficeViewProps> = ({
   office, currentUser, onLogout, onStartCall, onEnterRoom, onUpdateStatus, onKnock, onCreateRoom, onDeleteRoom,
   onUpdateOffice, onUpdateUser, onCreateUser, onDeleteUser, onCreateInvite,
-  onCreateSector, onUpdateSector, onDeleteSector
+  onCreateSector, onUpdateSector, onDeleteSector,
+  hasMinimizedCall = false
 }) => {
   const [selectedSector, setSelectedSector] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -943,7 +946,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-5 scroll-smooth w-full">
+        <div className={`flex-1 overflow-y-auto p-5 scroll-smooth w-full ${hasMinimizedCall ? 'pb-24' : ''}`}>
             <div style={{
                 transform: `scale(${zoomLevel})`,
                 transformOrigin: 'top left',
