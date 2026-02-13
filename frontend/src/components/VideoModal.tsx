@@ -53,6 +53,18 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMedia, setIsLoadingMedia] = useState(!isInitialized);
 
+  // Room Chat State (temporary/ephemeral)
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    userId: string;
+    userName: string;
+    text: string;
+    timestamp: Date;
+  }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   // Media State
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -322,6 +334,28 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     return () => clearInterval(interval);
   }, [isTranscribing, participants]);
 
+  // Auto scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Chat functions
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const newMessage = {
+      id: `msg-${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      text: chatInput,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, newMessage]);
+    setChatInput('');
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col animate-in fade-in zoom-in-95 duration-300">
       {/* Loading Screen */}
@@ -468,14 +502,14 @@ export const VideoModal: React.FC<VideoModalProps> = ({
         <div className="w-px h-10 bg-slate-600 mx-4"></div>
 
         <ControlBtn
-          isActive={false}
-          onClick={() => {}}
+          isActive={showChat}
+          onClick={() => setShowChat(!showChat)}
           onIcon={MessageSquare}
           offIcon={MessageSquare}
-          label="Chat"
-          activeColor="bg-slate-700"
+          label="Chat da Sala"
+          activeColor="bg-indigo-600 text-white"
           inactiveColor="bg-slate-700 text-slate-300"
-          badge={false}
+          badge={chatMessages.length > 0 && !showChat}
         />
 
         {/* Invite Button */}
@@ -534,6 +568,82 @@ export const VideoModal: React.FC<VideoModalProps> = ({
           <span className="hidden md:inline">Sair</span>
         </button>
       </footer>
+
+      {/* Room Chat Panel - Temporary/Ephemeral */}
+      {showChat && (
+        <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-white border-l border-slate-200 shadow-2xl z-[110] flex flex-col animate-in slide-in-from-right duration-300">
+          {/* Chat Header */}
+          <div className="h-16 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={20} className="text-white" />
+              <div>
+                <h3 className="text-white font-bold text-sm">Chat da Sala</h3>
+                <p className="text-indigo-100 text-xs">Mensagens temporárias</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChat(false)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+            {chatMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center px-4">
+                <MessageSquare size={48} className="mb-3 opacity-50" />
+                <p className="font-semibold mb-1">Nenhuma mensagem ainda</p>
+                <p className="text-xs">Envie uma mensagem para começar a conversar com os participantes da sala</p>
+              </div>
+            ) : (
+              <>
+                {chatMessages.map((msg) => {
+                  const isMe = msg.userId === currentUser.id;
+                  return (
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] ${isMe ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200'} rounded-2xl px-4 py-2 shadow-sm`}>
+                        {!isMe && (
+                          <p className="text-xs font-bold text-indigo-600 mb-1">{msg.userName}</p>
+                        )}
+                        <p className={`text-sm ${isMe ? 'text-white' : 'text-slate-800'}`}>{msg.text}</p>
+                        <p className={`text-xs mt-1 ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                          {msg.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={chatEndRef} />
+              </>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-200 shrink-0">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim()}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-indigo-200"
+              >
+                Enviar
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-2 text-center">
+              ⚠️ Estas mensagens serão apagadas ao sair da sala
+            </p>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
