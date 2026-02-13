@@ -70,7 +70,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
   return (
     <>
       {/* Compact Layout - Larger square preview on left, vertical controls on right */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         {/* Larger Square Video Preview - Left Side */}
         <div
           className="relative bg-slate-800 rounded-xl overflow-hidden group cursor-pointer flex-shrink-0 w-20 h-20 shadow-md"
@@ -123,39 +123,39 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
         </div>
 
         {/* Vertical Controls - Right Side */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <button
             onClick={toggleMute}
             disabled={!isInitialized}
-            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${
+            className={`p-2.5 rounded-lg transition-all flex items-center justify-center ${
               isMuted
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
             } disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90`}
             title={isMuted ? 'Desmutar' : 'Mutar'}
           >
-            {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
+            {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
 
           <button
             onClick={toggleCamera}
             disabled={!isInitialized}
-            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${
+            className={`p-2.5 rounded-lg transition-all flex items-center justify-center ${
               isCameraOff
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
             } disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90`}
             title={isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
           >
-            {isCameraOff ? <VideoOff size={13} /> : <Video size={13} />}
+            {isCameraOff ? <VideoOff size={16} /> : <Video size={16} />}
           </button>
 
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 rounded-md bg-slate-600 text-white hover:bg-slate-500 transition-colors flex items-center justify-center"
+            className="p-2.5 rounded-lg bg-slate-600 text-white hover:bg-slate-500 transition-colors flex items-center justify-center"
             title="Dispositivos"
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={16} />
           </button>
         </div>
       </div>
