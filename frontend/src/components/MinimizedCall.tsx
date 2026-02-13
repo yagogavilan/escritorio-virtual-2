@@ -26,7 +26,7 @@ export const MinimizedCall: React.FC<MinimizedCallProps> = ({
   } = useMedia();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[90] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t-2 border-indigo-500/50 shadow-2xl animate-in slide-in-from-bottom-5 fade-in backdrop-blur-xl">
+    <div className="fixed bottom-0 left-20 md:left-56 right-0 z-[90] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t-2 border-indigo-500/50 shadow-2xl animate-in slide-in-from-bottom-5 fade-in backdrop-blur-xl">
       <div className="max-w-screen-2xl mx-auto px-6 py-3">
         <div className="flex items-center justify-between gap-6">
           {/* Left Side - Call Info */}
