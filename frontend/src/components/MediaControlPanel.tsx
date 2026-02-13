@@ -70,7 +70,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
   return (
     <>
       {/* Compact Layout - Larger square preview on left, vertical controls on right */}
-      <div className="flex items-center gap-2.5 p-3 border-t border-slate-100 bg-slate-50/50">
+      <div className="flex items-center gap-2.5">
         {/* Larger Square Video Preview - Left Side */}
         <div
           className="relative bg-slate-800 rounded-xl overflow-hidden group cursor-pointer flex-shrink-0 w-20 h-20 shadow-md"
@@ -162,7 +162,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
       {/* Device Settings - Collapsible */}
       {showSettings && (
-        <div className="px-3 pb-2 bg-slate-50/50 animate-in slide-in-from-top-2 fade-in duration-200">
+        <div className="pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
           <div className="p-2 bg-white rounded-lg border border-slate-200 space-y-2">
             {/* Microfone */}
             <div>
