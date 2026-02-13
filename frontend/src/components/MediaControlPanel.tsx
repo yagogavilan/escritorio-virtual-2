@@ -123,11 +123,11 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
         </div>
 
         {/* Vertical Controls - Right Side */}
-        <div className="flex flex-col gap-1 h-20 justify-between">
+        <div className="flex flex-col gap-1 h-20 justify-between flex-1">
           <button
             onClick={toggleMute}
             disabled={!isInitialized}
-            className={`flex-1 rounded-lg transition-all flex items-center justify-center ${
+            className={`flex-1 w-full rounded-lg transition-all flex items-center justify-center ${
               isMuted
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
@@ -140,7 +140,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
           <button
             onClick={toggleCamera}
             disabled={!isInitialized}
-            className={`flex-1 rounded-lg transition-all flex items-center justify-center ${
+            className={`flex-1 w-full rounded-lg transition-all flex items-center justify-center ${
               isCameraOff
                 ? 'bg-red-500 text-white'
                 : 'bg-slate-700 text-white'
@@ -152,7 +152,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="flex-1 rounded-lg bg-slate-600 text-white hover:bg-slate-500 transition-colors flex items-center justify-center"
+            className="flex-1 w-full rounded-lg bg-slate-600 text-white hover:bg-slate-500 transition-colors flex items-center justify-center"
             title="Dispositivos"
           >
             <SlidersHorizontal size={15} />
