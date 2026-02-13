@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, Users, MessageSquare, Wand2, UserPlus, Check, X, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, Users, MessageSquare, Wand2, UserPlus, Check, X, AlertCircle, Minimize2 } from 'lucide-react';
 import { User } from '../types';
 import { io, Socket } from 'socket.io-client';
 import { useMedia } from '../contexts/MediaContext';
@@ -12,6 +12,7 @@ interface VideoModalProps {
   allUsers: User[];
   onLeave: () => void;
   onInvite: (users: User[]) => void;
+  onMinimize?: () => void;
 }
 
 interface PeerConnection {
@@ -32,7 +33,8 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   roomName,
   allUsers,
   onLeave,
-  onInvite
+  onInvite,
+  onMinimize
 }) => {
   // Use Media Context for centralized media management
   const {
@@ -513,14 +515,27 @@ export const VideoModal: React.FC<VideoModalProps> = ({
           )}
         </div>
 
-        <button
-          onClick={onLeave}
-          className="ml-8 px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-red-900/20 transition-all hover:scale-105 active:scale-95 group"
-          title="Sair da Chamada"
-        >
-          <PhoneOff size={20} className="group-hover:animate-bounce" />
-          <span className="hidden md:inline">Sair</span>
-        </button>
+        <div className="flex gap-3 ml-8">
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              className="px-6 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 group"
+              title="Minimizar Chamada"
+            >
+              <Minimize2 size={20} className="group-hover:animate-pulse" />
+              <span className="hidden md:inline">Minimizar</span>
+            </button>
+          )}
+
+          <button
+            onClick={onLeave}
+            className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-red-900/20 transition-all hover:scale-105 active:scale-95 group"
+            title="Sair da Chamada"
+          >
+            <PhoneOff size={20} className="group-hover:animate-bounce" />
+            <span className="hidden md:inline">Sair</span>
+          </button>
+        </div>
       </footer>
     </div>
   );

@@ -11,6 +11,7 @@ const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(mod
 const OfficeView = lazy(() => import('./components/OfficeView').then(module => ({ default: module.OfficeView })));
 const VideoModal = lazy(() => import('./components/VideoModal').then(module => ({ default: module.VideoModal })));
 const MediaPreviewModal = lazy(() => import('./components/MediaPreviewModal').then(module => ({ default: module.MediaPreviewModal })));
+const MinimizedCall = lazy(() => import('./components/MinimizedCall').then(module => ({ default: module.MinimizedCall })));
 
 // Loading component for Suspense fallback
 const ComponentLoader = () => (
@@ -47,6 +48,7 @@ export default function App() {
   });
 
   const [activeCall, setActiveCall] = useState<{ roomName: string, participants: User[], roomId?: string } | null>(null);
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{ caller: User, roomId?: string } | null>(null);
   const [pendingRoomJoin, setPendingRoomJoin] = useState<Room | null>(null);
 
@@ -490,6 +492,7 @@ export default function App() {
     }
 
     setActiveCall(null);
+    setIsCallMinimized(false);
   };
 
   const handleCreateRoom = async (roomData: { name: string, color: string, image: string, isRestricted: boolean, icon: string }) => {
@@ -997,7 +1000,7 @@ export default function App() {
         </Suspense>
       )}
 
-      {activeCall && (
+      {activeCall && !isCallMinimized && (
         <Suspense fallback={<ComponentLoader />}>
           <VideoModal
             currentUser={currentUser!}
@@ -1006,6 +1009,19 @@ export default function App() {
             allUsers={officeData.users}
             onLeave={handleLeaveCall}
             onInvite={handleInviteUsers}
+            onMinimize={() => setIsCallMinimized(true)}
+          />
+        </Suspense>
+      )}
+
+      {activeCall && isCallMinimized && (
+        <Suspense fallback={null}>
+          <MinimizedCall
+            title={activeCall.roomName}
+            type={activeCall.roomId ? 'room' : 'call'}
+            participantCount={activeCall.participants.length}
+            onExpand={() => setIsCallMinimized(false)}
+            onEnd={handleLeaveCall}
           />
         </Suspense>
       )}
