@@ -571,7 +571,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
 
       {/* Room Chat Panel - Temporary/Ephemeral */}
       {showChat && (
-        <div className="fixed top-0 right-0 h-full w-full md:w-96 bg-white border-l border-slate-200 shadow-2xl z-[110] flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="fixed top-16 right-0 h-[calc(100%-64px)] w-full md:w-96 bg-white border-l border-slate-200 shadow-2xl z-[110] flex flex-col animate-in slide-in-from-right duration-300">
           {/* Chat Header */}
           <div className="h-16 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
