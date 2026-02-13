@@ -835,14 +835,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
           <span className="font-bold text-slate-800 text-lg hidden md:block truncate">{office.name}</span>
         </div>
 
-        {/* Media Control Panel - Integrado no sidebar */}
-        <div className="hidden md:block">
-          <MediaControlPanel
-            currentUserStatus={currentUser.status}
-            onStatusChange={(status) => onUpdateStatus(status)}
-          />
-        </div>
-
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             <SidebarButton active={sidebarMode === 'chat'} icon={MessageSquare} label="Chat" onClick={handleToggleChat} badge={channels.reduce((acc, c) => acc + (c.unreadCount || 0), 0) || undefined} />
             <SidebarButton active={sidebarMode === 'tasks'} icon={ClipboardList} label="Tarefas" onClick={handleToggleTasks} />
@@ -850,7 +842,16 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             {isAdmin && <SidebarButton active={false} icon={Settings} label="Configurações" onClick={() => setShowSettingsModal(true)} />}
         </nav>
 
-        <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/50">
+        <div className="mt-auto">
+           {/* Media Control Panel - Parte inferior */}
+           <div className="hidden md:block">
+             <MediaControlPanel
+               currentUserStatus={currentUser.status}
+               onStatusChange={(status) => onUpdateStatus(status)}
+             />
+           </div>
+
+           <div className="p-4 border-t border-slate-100 bg-slate-50/50">
            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative group cursor-pointer hover:border-indigo-200 transition-colors">
               <div className="flex items-center gap-3" onClick={() => setShowStatusMenu(!showStatusMenu)}>
                   <div className="relative shrink-0">
@@ -885,6 +886,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
            </div>
            
            <button onClick={onLogout} className="w-full mt-3 flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-sm font-semibold transition-colors py-2 rounded-lg hover:bg-red-50" title="Sign Out">
+
               <LogOut size={18} /> <span className="hidden md:block">Sair</span>
            </button>
         </div>
