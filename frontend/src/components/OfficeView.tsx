@@ -827,18 +827,20 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans relative">
-      {/* Media Control Panel - Sempre visível na lateral esquerda */}
-      <MediaControlPanel
-        currentUserStatus={currentUser.status}
-        onStatusChange={(status) => onUpdateStatus(status)}
-      />
-
       <aside className="w-20 md:w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 z-40 shadow-xl transition-all duration-300">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200 shrink-0">
             <Briefcase className="text-white" size={20} />
           </div>
           <span className="font-bold text-slate-800 text-lg hidden md:block truncate">{office.name}</span>
+        </div>
+
+        {/* Media Control Panel - Integrado no sidebar */}
+        <div className="hidden md:block">
+          <MediaControlPanel
+            currentUserStatus={currentUser.status}
+            onStatusChange={(status) => onUpdateStatus(status)}
+          />
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">

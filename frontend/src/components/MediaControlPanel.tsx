@@ -8,8 +8,9 @@ import {
   ChevronDown,
   AlertCircle,
   RefreshCw,
-  Monitor,
-  Volume2
+  Maximize2,
+  Minimize2,
+  X
 } from 'lucide-react';
 import { useMedia } from '../contexts/MediaContext';
 import { UserStatus } from '../types';
@@ -50,7 +51,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Update video element when stream changes
   useEffect(() => {
@@ -68,44 +69,31 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
     }
   }, []);
 
-  const statusOptions: UserStatus[] = ['online', 'busy', 'away', 'in-meeting'];
-
   return (
-    <div className="w-72 bg-slate-900 border-r border-slate-700 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-700">
-        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-          <Monitor size={16} className="text-indigo-400" />
-          Controles de Mídia
-        </h3>
-      </div>
+    <>
+      {/* Compact View - Integrated in Sidebar */}
+      <div className="p-3 border-b border-slate-200">
+        {/* Video Preview - Small */}
+        <div className="relative bg-slate-800 rounded-xl overflow-hidden mb-2 group cursor-pointer"
+             style={{ aspectRatio: '16/9' }}
+             onClick={() => setIsExpanded(true)}>
 
-      {/* Video Preview */}
-      <div className="p-4">
-        <div className="relative bg-slate-800 rounded-2xl overflow-hidden aspect-video border-2 border-slate-700 shadow-xl">
           {isInitializing && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-                <p className="text-slate-400 text-xs">Iniciando...</p>
-              </div>
+              <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
             </div>
           )}
 
           {error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <AlertCircle size={24} className="text-red-400" />
-                </div>
-                <p className="text-white text-xs font-semibold">Erro de Mídia</p>
-                <p className="text-slate-400 text-[10px]">{error}</p>
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 p-2">
+              <div className="text-center">
+                <AlertCircle size={16} className="text-red-400 mx-auto mb-1" />
                 <button
-                  onClick={initializeMedia}
-                  className="mt-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-lg flex items-center gap-1 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); initializeMedia(); }}
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mx-auto"
                 >
-                  <RefreshCw size={12} />
-                  Tentar Novamente
+                  <RefreshCw size={10} />
+                  Tentar novamente
                 </button>
               </div>
             </div>
@@ -113,9 +101,7 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
           {!isInitializing && !error && (isCameraOff || !localStream) && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center border-4 border-slate-600">
-                <VideoOff size={32} className="text-slate-500" />
-              </div>
+              <VideoOff size={24} className="text-slate-500" />
             </div>
           )}
 
@@ -129,73 +115,76 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
             />
           )}
 
+          {/* Expand Icon on Hover */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+            <Maximize2 size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
           {/* Muted Indicator */}
           {isMuted && isInitialized && (
-            <div className="absolute top-3 right-3 bg-red-500/90 p-2 rounded-full animate-pulse shadow-lg backdrop-blur-sm">
-              <MicOff size={14} className="text-white" />
+            <div className="absolute top-1.5 right-1.5 bg-red-500/90 p-1 rounded-full">
+              <MicOff size={10} className="text-white" />
             </div>
           )}
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="px-4 pb-4">
-        <div className="flex gap-2">
+        {/* Compact Controls */}
+        <div className="flex gap-1.5 mb-2">
           <button
             onClick={toggleMute}
             disabled={!isInitialized}
-            className={`flex-1 p-3 rounded-xl transition-all font-semibold text-sm flex items-center justify-center gap-2 ${
+            className={`flex-1 p-2 rounded-lg transition-all text-xs font-semibold flex items-center justify-center gap-1 ${
               isMuted
-                ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                ? 'bg-red-500 text-white hover:bg-red-600'
                 : 'bg-slate-700 text-white hover:bg-slate-600'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isMuted ? 'Desmutar' : 'Mutar'}
           >
-            {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+            {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
+            <span className="hidden md:inline">{isMuted ? 'Mudo' : 'Audio'}</span>
           </button>
 
           <button
             onClick={toggleCamera}
             disabled={!isInitialized}
-            className={`flex-1 p-3 rounded-xl transition-all font-semibold text-sm flex items-center justify-center gap-2 ${
+            className={`flex-1 p-2 rounded-lg transition-all text-xs font-semibold flex items-center justify-center gap-1 ${
               isCameraOff
-                ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                ? 'bg-red-500 text-white hover:bg-red-600'
                 : 'bg-slate-700 text-white hover:bg-slate-600'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
           >
-            {isCameraOff ? <VideoOff size={18} /> : <Video size={18} />}
+            {isCameraOff ? <VideoOff size={14} /> : <Video size={14} />}
+            <span className="hidden md:inline">{isCameraOff ? 'Off' : 'Video'}</span>
           </button>
 
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-3 rounded-xl bg-slate-700 text-white hover:bg-slate-600 transition-colors"
+            className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
             title="Configurações"
           >
-            <Settings size={18} />
+            <Settings size={14} />
           </button>
         </div>
-      </div>
 
-      {/* Device Settings */}
-      {showSettings && (
-        <div className="px-4 pb-4 animate-in slide-in-from-top-2 fade-in duration-200">
-          <div className="bg-slate-800 rounded-xl p-3 space-y-3 border border-slate-700">
-            <h4 className="text-white font-semibold text-xs flex items-center gap-2">
-              <Settings size={14} />
-              Configurações de Dispositivo
+        {/* Device Settings - Collapsible */}
+        {showSettings && (
+          <div className="mb-2 p-2 bg-slate-50 rounded-lg space-y-2 animate-in slide-in-from-top-2 fade-in duration-200">
+            <h4 className="text-slate-700 font-semibold text-[10px] mb-1.5 flex items-center gap-1">
+              <Settings size={10} />
+              Dispositivos
             </h4>
 
             {/* Microfone */}
             <div>
-              <label className="text-slate-400 text-[10px] font-medium mb-1.5 block flex items-center gap-1">
-                <Mic size={12} />
+              <label className="text-slate-500 text-[9px] font-medium mb-1 block flex items-center gap-1">
+                <Mic size={9} />
                 Microfone
               </label>
               <select
                 value={selectedAudioInput}
                 onChange={(e) => setAudioInput(e.target.value)}
-                className="w-full px-2.5 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-400"
               >
                 {devices.audioInputs.map((device, index) => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -207,14 +196,14 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
 
             {/* Câmera */}
             <div>
-              <label className="text-slate-400 text-[10px] font-medium mb-1.5 block flex items-center gap-1">
-                <Video size={12} />
+              <label className="text-slate-500 text-[9px] font-medium mb-1 block flex items-center gap-1">
+                <Video size={9} />
                 Câmera
               </label>
               <select
                 value={selectedVideoInput}
                 onChange={(e) => setVideoInput(e.target.value)}
-                className="w-full px-2.5 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-400"
               >
                 {devices.videoInputs.map((device, index) => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -224,62 +213,126 @@ export const MediaControlPanel: React.FC<MediaControlPanelProps> = ({
               </select>
             </div>
           </div>
+        )}
+
+        {/* Status Indicator - Minimal */}
+        {isInitialized && (
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[currentUserStatus].color} animate-pulse`}></div>
+            <span className="hidden md:inline">Mídia ativa</span>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded Modal */}
+      {isExpanded && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setIsExpanded(false)}>
+          <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-700" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full ${STATUS_CONFIG[currentUserStatus].color} ring-2 ${STATUS_CONFIG[currentUserStatus].ring}`}></div>
+                <h3 className="text-white font-bold text-sm">Preview de Câmera</h3>
+              </div>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Large Video Preview */}
+            <div className="p-6">
+              <div className="relative bg-slate-800 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-xl" style={{ aspectRatio: '16/9' }}>
+                {isInitializing && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <p className="text-slate-400 text-sm">Iniciando...</p>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800 p-6">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center">
+                        <AlertCircle size={32} className="text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold mb-1">Erro ao acessar mídia</p>
+                        <p className="text-slate-400 text-sm">{error}</p>
+                      </div>
+                      <button
+                        onClick={initializeMedia}
+                        className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center gap-2 transition-colors"
+                      >
+                        <RefreshCw size={14} />
+                        Tentar Novamente
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!isInitializing && !error && (isCameraOff || !localStream) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                    <div className="w-24 h-24 rounded-full bg-slate-700 flex items-center justify-center border-4 border-slate-600">
+                      <VideoOff size={48} className="text-slate-500" />
+                    </div>
+                  </div>
+                )}
+
+                {!isInitializing && !error && !isCameraOff && localStream && (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover transform scale-x-[-1]"
+                  />
+                )}
+
+                {/* Muted Indicator */}
+                {isMuted && isInitialized && (
+                  <div className="absolute top-4 right-4 bg-red-500/90 p-2.5 rounded-full animate-pulse shadow-lg">
+                    <MicOff size={18} className="text-white" />
+                  </div>
+                )}
+              </div>
+
+              {/* Controls in Modal */}
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={toggleMute}
+                  disabled={!isInitialized}
+                  className={`flex-1 p-3 rounded-xl transition-all font-semibold text-sm flex items-center justify-center gap-2 ${
+                    isMuted
+                      ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                      : 'bg-slate-700 text-white hover:bg-slate-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                  {isMuted ? 'Desmutar' : 'Mutar'}
+                </button>
+
+                <button
+                  onClick={toggleCamera}
+                  disabled={!isInitialized}
+                  className={`flex-1 p-3 rounded-xl transition-all font-semibold text-sm flex items-center justify-center gap-2 ${
+                    isCameraOff
+                      ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                      : 'bg-slate-700 text-white hover:bg-slate-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isCameraOff ? <VideoOff size={18} /> : <Video size={18} />}
+                  {isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Status Selector */}
-      <div className="px-4 pb-4 border-t border-slate-700 pt-4 mt-auto">
-        <div className="relative">
-          <button
-            onClick={() => setShowStatusMenu(!showStatusMenu)}
-            className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className={`w-3 h-3 rounded-full ${STATUS_CONFIG[currentUserStatus].color} ring-4 ${STATUS_CONFIG[currentUserStatus].ring} shadow-lg`}></div>
-              <span className="text-white text-sm font-semibold">
-                {STATUS_CONFIG[currentUserStatus].label}
-              </span>
-            </div>
-            <ChevronDown size={16} className="text-slate-400" />
-          </button>
-
-          {showStatusMenu && (
-            <div className="absolute bottom-full mb-2 left-0 right-0 bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
-              {statusOptions.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => {
-                    onStatusChange(status);
-                    setShowStatusMenu(false);
-                  }}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${
-                    currentUserStatus === status ? 'bg-indigo-50' : ''
-                  }`}
-                >
-                  <div className={`w-3 h-3 rounded-full ${STATUS_CONFIG[status].color} ring-2 ${STATUS_CONFIG[status].ring}`}></div>
-                  <span className={`text-sm font-semibold ${
-                    currentUserStatus === status ? 'text-indigo-600' : 'text-slate-700'
-                  }`}>
-                    {STATUS_CONFIG[status].label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Info Footer */}
-      <div className="px-4 pb-3">
-        <div className="text-center text-[10px] text-slate-500">
-          {isInitialized && (
-            <p className="flex items-center justify-center gap-1">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-              Mídia ativa
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
