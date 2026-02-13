@@ -4,6 +4,7 @@ import { ArrowRight, Layers, LayoutGrid, ShieldCheck, Phone, PhoneIncoming, X, C
 import { authApi, usersApi, officeApi, sectorsApi, roomsApi, invitesApi } from './api/client';
 import { useSocket } from './hooks/useSocket';
 import { ToastContainer, Toast, useToast } from './components/ToastNotification';
+import { MediaProvider } from './contexts/MediaContext';
 
 // Lazy load heavy components for better initial load performance
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
@@ -932,7 +933,7 @@ export default function App() {
 
   // Render Office
   return (
-    <>
+    <MediaProvider>
       {/* Impersonation Banner */}
       {isImpersonating && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 flex items-center justify-between shadow-lg">
@@ -1054,6 +1055,6 @@ export default function App() {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
-    </>
+    </MediaProvider>
   );
 }

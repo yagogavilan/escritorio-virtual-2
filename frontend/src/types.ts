@@ -154,3 +154,18 @@ export interface Task {
     history: TaskHistory[];
     createdAt: Date;
 }
+
+// --- MEDIA CONTROL TYPES ---
+
+export interface MediaPreferences {
+    audioInputId?: string;
+    videoInputId?: string;
+    defaultMuted: boolean;
+    defaultCameraOff: boolean;
+}
+
+export interface MediaDevices {
+    audioInputs: MediaDeviceInfo[];
+    videoInputs: MediaDeviceInfo[];
+    audioOutputs: MediaDeviceInfo[];
+}

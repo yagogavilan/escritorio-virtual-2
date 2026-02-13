@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, Users, MessageSquare, Wand2, UserPlus, Check, X, AlertCircle } from 'lucide-react';
 import { User } from '../types';
 import { io, Socket } from 'socket.io-client';
+import { useMedia } from '../contexts/MediaContext';
 
 interface VideoModalProps {
   currentUser: User;
@@ -33,17 +34,30 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   onLeave,
   onInvite
 }) => {
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
+  // Use Media Context for centralized media management
+  const {
+    localStream: contextStream,
+    isMuted: contextMuted,
+    isCameraOff: contextCameraOff,
+    toggleMute,
+    toggleCamera,
+    isInitialized,
+    initializeMedia
+  } = useMedia();
+
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [transcription, setTranscription] = useState<string[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadingMedia, setIsLoadingMedia] = useState(true);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(!isInitialized);
 
   // Media State
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+
+  // Use context stream instead of local state
+  const localStream = contextStream;
+  const isMuted = contextMuted;
+  const isCameraOff = contextCameraOff;
 
   // WebRTC State
   const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
@@ -84,69 +98,50 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     };
   }, []);
 
-  // Initialize Local Media Stream
+  // Initialize Media from Context
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    let isMounted = true;
+    const initMedia = async () => {
+      console.log('[VideoModal] Checking media initialization');
 
-    const startMedia = async () => {
-      console.log('[VideoModal] Starting media with participants:', participants.length);
-      setIsLoadingMedia(true);
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: !isCameraOff,
-          audio: true
-        });
-
-        if (!isMounted) {
-          stream.getTracks().forEach(track => track.stop());
-          return;
-        }
-
-        console.log('[VideoModal] Media stream obtained successfully');
-        setLocalStream(stream);
-        setError(null);
-
-        if (localVideoRef.current && !isCameraOff) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // Initialize peer connections for all participants
-        console.log('[VideoModal] Initializing peer connections for', participants.length, 'participants');
-        participants.forEach(participant => {
-          createPeerConnection(participant.id, stream);
-        });
-
-        setIsLoadingMedia(false);
-      } catch (err: any) {
-        console.error("[VideoModal] Error accessing media devices:", err);
-        if (isMounted) {
-          setError('Não foi possível acessar câmera/microfone. Verifique as permissões.');
-          setIsCameraOff(true);
+      if (!isInitialized) {
+        console.log('[VideoModal] Initializing media from context...');
+        setIsLoadingMedia(true);
+        try {
+          await initializeMedia();
+        } catch (err) {
+          console.error('[VideoModal] Error initializing media:', err);
+          setError('Erro ao inicializar mídia');
+        } finally {
           setIsLoadingMedia(false);
         }
+      } else {
+        console.log('[VideoModal] Media already initialized');
+        setIsLoadingMedia(false);
       }
     };
 
-    startMedia();
+    initMedia();
+  }, [isInitialized, initializeMedia]);
 
+  // Update video ref when stream changes
+  useEffect(() => {
+    if (localVideoRef.current && localStream && !isCameraOff) {
+      localVideoRef.current.srcObject = localStream;
+    } else if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+  }, [localStream, isCameraOff]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      isMounted = false;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-
       // Close all peer connections
       peerConnectionsRef.current.forEach(({ connection }) => {
         connection.close();
       });
       peerConnectionsRef.current.clear();
     };
-  }, [isCameraOff]);
+  }, []);
 
   // Create peer connections when participants change
   useEffect(() => {
@@ -160,28 +155,6 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       });
     }
   }, [participants, localStream]);
-
-  // Handle Camera Toggle
-  useEffect(() => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !isCameraOff;
-      });
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = isCameraOff ? null : localStream;
-      }
-    }
-  }, [isCameraOff, localStream]);
-
-  // Handle Mute Toggle
-  useEffect(() => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !isMuted;
-      });
-    }
-  }, [isMuted, localStream]);
 
   // Create Peer Connection
   const createPeerConnection = async (targetUserId: string, stream: MediaStream) => {
@@ -452,7 +425,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
       <footer className="h-24 bg-slate-800 border-t border-slate-700 flex items-center justify-center gap-4 relative z-20">
         <ControlBtn
           isActive={!isMuted}
-          onClick={() => setIsMuted(!isMuted)}
+          onClick={toggleMute}
           onIcon={Mic}
           offIcon={MicOff}
           label={isMuted ? "Desmutar Microfone" : "Mutar Microfone"}
@@ -462,7 +435,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
 
         <ControlBtn
           isActive={!isCameraOff}
-          onClick={() => setIsCameraOff(!isCameraOff)}
+          onClick={toggleCamera}
           onIcon={Video}
           offIcon={VideoOff}
           label={isCameraOff ? "Ligar Câmera" : "Desligar Câmera"}
