@@ -842,16 +842,18 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
             {isAdmin && <SidebarButton active={false} icon={Settings} label="Configurações" onClick={() => setShowSettingsModal(true)} />}
         </nav>
 
-        <div className="mt-auto">
-           {/* Media Control Panel - Parte inferior */}
-           <div className="hidden md:block">
-             <MediaControlPanel
-               currentUserStatus={currentUser.status}
-               onStatusChange={(status) => onUpdateStatus(status)}
-             />
-           </div>
+        <div className="mt-auto border-t border-slate-100 bg-slate-50/50">
+           {/* Media Control Panel + Profile - Integrado */}
+           <div className="p-3">
+             {/* Media Controls - Integrated */}
+             <div className="hidden md:block mb-3">
+               <MediaControlPanel
+                 currentUserStatus={currentUser.status}
+                 onStatusChange={(status) => onUpdateStatus(status)}
+               />
+             </div>
 
-           <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+             {/* Profile Section */}
            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative group cursor-pointer hover:border-indigo-200 transition-colors">
               <div className="flex items-center gap-3" onClick={() => setShowStatusMenu(!showStatusMenu)}>
                   <div className="relative shrink-0">
@@ -885,11 +887,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
               )}
            </div>
            
-           <button onClick={onLogout} className="w-full mt-3 flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-sm font-semibold transition-colors py-2 rounded-lg hover:bg-red-50" title="Sign Out">
-
+           <button onClick={onLogout} className="w-full mt-2 flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-sm font-semibold transition-colors py-2 rounded-lg hover:bg-red-50" title="Sign Out">
               <LogOut size={18} /> <span className="hidden md:block">Sair</span>
            </button>
-          </div>
+           </div>
         </div>
       </aside>
 
