@@ -8,7 +8,7 @@ import {
   MoreVertical, Paperclip, Smile, Send, ChevronLeft, Phone,
   Edit2, Check, CheckCheck, UserPlus, AtSign, MessageCircle, Megaphone,
   Calendar as CalendarIcon, Clock, Music, Play, Pause, FileAudio, Upload, Square,
-  ClipboardList, List, Kanban, TableProperties, AlertCircle, FileText, Download,
+  ClipboardList, List, TableProperties, AlertCircle, FileText, Download,
   History, ArrowRight, Tag, Palette, Shield, UserPlus as UserAdd, QrCode,
   Layers, UserCog, Copy, RefreshCw, ZoomIn, ZoomOut, Cloud, Rocket
 } from 'lucide-react';
@@ -134,7 +134,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
   // --- Task Management State ---
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [taskViewMode, setTaskViewMode] = useState<'list' | 'kanban' | 'calendar'>('list');
+  const [taskViewMode, setTaskViewMode] = useState<'list' | 'calendar'>('list');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -1352,13 +1352,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
              <div className="flex items-center gap-1">
                  {sidebarMode === 'chat' && (
                      <div className="flex items-center gap-1 mr-2 px-2 py-1 bg-slate-100 rounded-lg">
-                         <button
-                             onClick={() => handleSelectChatProvider('native')}
-                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${chatProvider === 'native' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                             title="Chat Nativo"
-                         >
-                             Nativo
-                         </button>
                          {office.chatFeatures?.enableGoogleChat && (
                              <button
                                  onClick={() => handleSelectChatProvider('google')}
@@ -1691,7 +1684,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                      <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
                          <div className="flex items-center bg-slate-100 rounded-lg p-1">
                              <button onClick={() => setTaskViewMode('list')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${taskViewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><List size={14}/> Lista</button>
-                             <button onClick={() => setTaskViewMode('kanban')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${taskViewMode === 'kanban' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Kanban size={14}/> Kanban</button>
                              <button onClick={() => setTaskViewMode('calendar')} className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${taskViewMode === 'calendar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><CalendarIcon size={14}/> Calendário</button>
                          </div>
                          <div className="flex items-center gap-2">
@@ -1756,59 +1748,6 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
                              </div>
                          )}
 
-                         {taskViewMode === 'kanban' && (
-                             <div className="flex h-full gap-4 overflow-x-auto pb-4">
-                                 {(Object.keys(TASK_STATUS_CONFIG) as TaskStatus[]).map(status => (
-                                     <div key={status} className="flex-1 min-w-[280px] flex flex-col bg-slate-100 rounded-2xl border border-slate-300">
-                                         <div className={`p-3 border-b border-slate-200 font-bold text-sm text-slate-800 flex justify-between items-center rounded-t-2xl ${TASK_STATUS_CONFIG[status].bg}`}>
-                                             {TASK_STATUS_CONFIG[status].label}
-                                             <span className="bg-white px-2 py-0.5 rounded-full text-xs shadow-sm text-slate-600 border border-slate-200">{tasks.filter(t => t.status === status).length}</span>
-                                         </div>
-                                         <div className="p-3 space-y-3 overflow-y-auto flex-1 bg-slate-100/50" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, status)}>
-                                             {tasks.filter(t => t.status === status).map(task => {
-                                                  const assignee = office.users.find(u => u.id === task.assigneeId);
-                                                  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
-                                                  return (
-                                                     <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 cursor-move transition-all group ${draggedTask?.id === task.id ? 'opacity-50 cursor-grabbing' : 'cursor-grab'}`} draggable={true} onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}>
-                                                         <div className="flex justify-between items-start mb-3">
-                                                             <div className="flex gap-1">
-                                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TASK_PRIORITY_CONFIG[task.priority].color}`}>{TASK_PRIORITY_CONFIG[task.priority].label}</span>
-                                                                 {isOverdue && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 flex items-center gap-1 border border-red-200"><AlertCircle size={10}/> Atrasado</span>}
-                                                             </div>
-                                                         </div>
-                                                         <p className="font-bold text-slate-800 text-sm mb-3 leading-snug">{task.title}</p>
-                                                         
-                                                         <div className="flex flex-wrap gap-1 mb-3">
-                                                             {task.tags.map(t => <span key={t} className="text-[10px] font-semibold bg-slate-50 text-slate-500 px-1.5 py-0.5 rounded border border-slate-100">{t}</span>)}
-                                                         </div>
-
-                                                         <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                                                             <div className="flex items-center gap-2">
-                                                                 {assignee ? (
-                                                                     <>
-                                                                     <img src={getUserAvatar(assignee)} className="w-6 h-6 rounded-full border border-slate-100" title={assignee.name} />
-                                                                     <span className="text-xs text-slate-500 font-medium truncate max-w-[80px]">{assignee.name.split(' ')[0]}</span>
-                                                                     </>
-                                                                 ) : <span className="text-xs text-slate-300 italic">Sem dono</span>}
-                                                             </div>
-                                                             <div className="flex gap-3 text-slate-400">
-                                                                 {task.dueDate && <span className={`flex items-center gap-1 text-[10px] font-bold ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}><CalendarIcon size={12}/> {task.dueDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>}
-                                                                 {(task.comments.length > 0 || task.attachments.length > 0) && (
-                                                                     <div className="flex gap-2">
-                                                                         {task.comments.length > 0 && <span className="flex items-center gap-0.5 text-[10px]"><MessageSquare size={12}/> {task.comments.length}</span>}
-                                                                         {task.attachments.length > 0 && <span className="flex items-center gap-0.5 text-[10px]"><Paperclip size={12}/> {task.attachments.length}</span>}
-                                                                     </div>
-                                                                 )}
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                  );
-                                             })}
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
-                         )}
 
                          {taskViewMode === 'calendar' && (
                              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 h-full overflow-hidden flex flex-col">
