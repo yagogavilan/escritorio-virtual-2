@@ -889,6 +889,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
               <LogOut size={18} /> <span className="hidden md:block">Sair</span>
            </button>
+          </div>
         </div>
       </aside>
 
