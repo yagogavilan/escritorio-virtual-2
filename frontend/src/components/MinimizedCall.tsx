@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Maximize2, X, Mic, MicOff, Video, VideoOff, Users, Monitor } from 'lucide-react';
+import React from 'react';
+import { Maximize2, X, Mic, MicOff, Video, VideoOff, Users, Monitor, Phone } from 'lucide-react';
 import { useMedia } from '../contexts/MediaContext';
 
 interface MinimizedCallProps {
@@ -18,7 +18,6 @@ export const MinimizedCall: React.FC<MinimizedCallProps> = ({
   onEnd
 }) => {
   const {
-    localStream,
     isMuted,
     isCameraOff,
     toggleMute,
@@ -26,183 +25,107 @@ export const MinimizedCall: React.FC<MinimizedCallProps> = ({
     isInitialized
   } = useMedia();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [position, setPosition] = useState({ x: 20, y: 20 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
-  // Update video element when stream changes
-  useEffect(() => {
-    if (videoRef.current && localStream && !isCameraOff) {
-      videoRef.current.srcObject = localStream;
-    } else if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, [localStream, isCameraOff]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
-    });
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - 320));
-        const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - 200));
-        setPosition({ x: newX, y: newY });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, dragOffset]);
-
   return (
-    <div
-      className={`fixed z-[90] bg-slate-900 rounded-2xl shadow-2xl border-2 border-slate-700 overflow-hidden transition-all duration-300 ${
-        isDragging ? 'cursor-grabbing scale-105 shadow-indigo-500/50' : 'cursor-grab'
-      } animate-in slide-in-from-bottom-10 fade-in`}
-      style={{
-        left: `${position.x}px`,
-        bottom: `${position.y}px`,
-        width: '320px',
-      }}
-      onMouseDown={handleMouseDown}
-    >
-      {/* Video Preview */}
-      <div className="relative bg-slate-800 h-40 overflow-hidden">
-        {!isCameraOff && localStream && isInitialized ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover transform scale-x-[-1]"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-            <VideoOff size={40} className="text-slate-600" />
-          </div>
-        )}
-
-        {/* Overlay Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent pointer-events-none"></div>
-
-        {/* Status Indicators */}
-        <div className="absolute top-3 left-3 flex gap-2">
-          {isMuted && (
-            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-              <MicOff size={12} className="text-white" />
+    <div className="fixed bottom-0 left-0 right-0 z-[90] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t-2 border-indigo-500/50 shadow-2xl animate-in slide-in-from-bottom-5 fade-in backdrop-blur-xl">
+      <div className="max-w-screen-2xl mx-auto px-6 py-3">
+        <div className="flex items-center justify-between gap-6">
+          {/* Left Side - Call Info */}
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Icon & Status */}
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                {type === 'room' ? (
+                  <Monitor size={24} className="text-white" />
+                ) : (
+                  <Phone size={24} className="text-white" />
+                )}
+              </div>
+              {/* Pulse Animation */}
+              <div className="absolute inset-0 rounded-xl bg-indigo-500 animate-ping opacity-20"></div>
             </div>
-          )}
-          {type === 'room' && participantCount > 1 && (
-            <div className="bg-indigo-500/90 backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-              <Users size={12} className="text-white" />
-              <span className="text-white text-xs font-bold">{participantCount}</span>
-            </div>
-          )}
-        </div>
 
-        {/* Top Actions */}
-        <div className="absolute top-3 right-3 flex gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onExpand();
-            }}
-            className="p-2 bg-slate-700/80 hover:bg-slate-600 backdrop-blur-sm rounded-full transition-all hover:scale-110 shadow-lg"
-            title="Expandir"
-          >
-            <Maximize2 size={14} className="text-white" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEnd();
-            }}
-            className="p-2 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm rounded-full transition-all hover:scale-110 shadow-lg"
-            title="Encerrar"
-          >
-            <X size={14} className="text-white" />
-          </button>
-        </div>
-      </div>
-
-      {/* Info Bar */}
-      <div className="bg-slate-900 px-4 py-3 border-t border-slate-700">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {type === 'room' ? (
-              <Monitor size={16} className="text-indigo-400 shrink-0" />
-            ) : (
-              <Video size={16} className="text-emerald-400 shrink-0" />
-            )}
+            {/* Call Details */}
             <div className="min-w-0 flex-1">
-              <p className="text-white font-bold text-sm truncate">{title}</p>
-              <p className="text-slate-400 text-xs">
-                {type === 'room' ? 'Sala' : 'Chamada'} em andamento
-              </p>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-white font-bold text-base truncate">{title}</h3>
+                {type === 'room' && participantCount > 1 && (
+                  <div className="bg-indigo-500/20 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1 border border-indigo-400/30">
+                    <Users size={12} className="text-indigo-300" />
+                    <span className="text-indigo-200 text-xs font-bold">{participantCount}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <p className="text-slate-400 text-xs font-medium">
+                  {type === 'room' ? 'Sala' : 'Chamada'} em andamento
+                </p>
+                {isMuted && (
+                  <div className="bg-red-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-400/30">
+                    <MicOff size={10} className="text-red-300" />
+                    <span className="text-red-200 text-xs font-semibold">Mudo</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Controls */}
-        <div className="flex gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMute();
-            }}
-            disabled={!isInitialized}
-            className={`flex-1 py-2 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5 ${
-              isMuted
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'
-                : 'bg-slate-700 hover:bg-slate-600 text-white'
-            } disabled:opacity-50`}
-            title={isMuted ? 'Desmutar' : 'Mutar'}
-          >
-            {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
-            {isMuted ? 'Mutado' : 'Mic'}
-          </button>
+          {/* Center - Controls */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleMute}
+              disabled={!isInitialized}
+              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 shadow-lg ${
+                isMuted
+                  ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 ring-2 ring-red-400/30'
+                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95`}
+              title={isMuted ? 'Desmutar' : 'Mutar'}
+            >
+              {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+              <span className="hidden md:inline">{isMuted ? 'Mutado' : 'Microfone'}</span>
+            </button>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCamera();
-            }}
-            disabled={!isInitialized}
-            className={`flex-1 py-2 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-1.5 ${
-              isCameraOff
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'
-                : 'bg-slate-700 hover:bg-slate-600 text-white'
-            } disabled:opacity-50`}
-            title={isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
-          >
-            {isCameraOff ? <VideoOff size={14} /> : <Video size={14} />}
-            {isCameraOff ? 'Câmera Off' : 'Câmera'}
-          </button>
+            <button
+              onClick={toggleCamera}
+              disabled={!isInitialized}
+              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 shadow-lg ${
+                isCameraOff
+                  ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 ring-2 ring-red-400/30'
+                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95`}
+              title={isCameraOff ? 'Ligar Câmera' : 'Desligar Câmera'}
+            >
+              {isCameraOff ? <VideoOff size={18} /> : <Video size={18} />}
+              <span className="hidden md:inline">{isCameraOff ? 'Câmera Off' : 'Câmera'}</span>
+            </button>
+          </div>
+
+          {/* Right Side - Main Actions */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={onExpand}
+              className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-2xl shadow-indigo-500/50 hover:scale-105 active:scale-95 ring-2 ring-indigo-400/30"
+              title="Expandir Chamada"
+            >
+              <Maximize2 size={20} className="animate-pulse" />
+              <span>Expandir</span>
+            </button>
+
+            <button
+              onClick={onEnd}
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95"
+              title="Encerrar Chamada"
+            >
+              <X size={20} />
+              <span className="hidden lg:inline">Sair</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Drag Handle Indicator */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-slate-600 rounded-full opacity-50"></div>
+      {/* Decorative Gradient Bar */}
+      <div className="h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-50"></div>
     </div>
   );
 };

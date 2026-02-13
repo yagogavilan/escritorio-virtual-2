@@ -365,6 +365,16 @@ export const VideoModal: React.FC<VideoModalProps> = ({
             <Wand2 size={14} />
             {isTranscribing ? 'Transcrição Ativa' : 'Ativar IA'}
           </button>
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition-all text-sm font-semibold shadow-lg"
+              title="Minimizar Chamada"
+            >
+              <Minimize2 size={16} />
+              <span className="hidden lg:inline">Minimizar</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -515,27 +525,14 @@ export const VideoModal: React.FC<VideoModalProps> = ({
           )}
         </div>
 
-        <div className="flex gap-3 ml-8">
-          {onMinimize && (
-            <button
-              onClick={onMinimize}
-              className="px-6 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 group"
-              title="Minimizar Chamada"
-            >
-              <Minimize2 size={20} className="group-hover:animate-pulse" />
-              <span className="hidden md:inline">Minimizar</span>
-            </button>
-          )}
-
-          <button
-            onClick={onLeave}
-            className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-red-900/20 transition-all hover:scale-105 active:scale-95 group"
-            title="Sair da Chamada"
-          >
-            <PhoneOff size={20} className="group-hover:animate-bounce" />
-            <span className="hidden md:inline">Sair</span>
-          </button>
-        </div>
+        <button
+          onClick={onLeave}
+          className="ml-8 px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-red-900/20 transition-all hover:scale-105 active:scale-95 group"
+          title="Sair da Chamada"
+        >
+          <PhoneOff size={20} className="group-hover:animate-bounce" />
+          <span className="hidden md:inline">Sair</span>
+        </button>
       </footer>
     </div>
   );
