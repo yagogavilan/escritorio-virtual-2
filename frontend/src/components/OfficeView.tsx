@@ -1866,7 +1866,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
          </div>
       </div>
 
-      {showTaskModal && (
+      {showTaskModal && office.users && office.users.length > 0 && currentUser && (
           <TaskModal
               task={editingTask}
               users={office.users}
