@@ -149,6 +149,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
     dateTo: '' as string,
     searchText: '' as string
   });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Modals
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -1680,121 +1681,130 @@ export const OfficeView: React.FC<OfficeViewProps> = ({
 
              {sidebarMode === 'tasks' && (
                  <div className="w-full h-full bg-slate-100 flex flex-col">
-                     <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
-                         <h2 className="text-lg font-bold text-slate-800">Gestão de Tarefas</h2>
-                         <span className="text-xs font-bold text-slate-400 uppercase">{filteredTasks.length} Tarefas</span>
-                     </div>
+                     {/* Header Moderno com Busca */}
+                     <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                         <div className="flex items-center justify-between mb-3">
+                             <div className="flex items-center gap-2">
+                                 <ClipboardList size={24} className="text-white/90" />
+                                 <h2 className="text-xl font-bold">Tarefas</h2>
+                             </div>
+                             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                                 <span className="text-sm font-semibold">{filteredTasks.length}</span>
+                                 <span className="text-xs opacity-90">tarefas</span>
+                             </div>
+                         </div>
 
-                     {/* Barra de Filtros */}
-                     <div className="p-4 bg-white border-b border-slate-200 space-y-3">
-                         {/* Linha 1: Busca por texto */}
+                         {/* Busca Minimalista */}
                          <div className="relative">
                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                              <input
                                  type="text"
-                                 placeholder="Pesquisar por título ou descrição..."
+                                 placeholder="Buscar tarefas..."
                                  value={taskFilters.searchText}
                                  onChange={(e) => setTaskFilters({...taskFilters, searchText: e.target.value})}
-                                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                 className="w-full pl-10 pr-12 py-2.5 bg-white/95 backdrop-blur-sm border-0 rounded-xl text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-white/50 shadow-lg transition-all"
                              />
-                         </div>
-
-                         {/* Linha 2: Filtros principais em grid */}
-                         <div className="grid grid-cols-2 gap-2">
-                             {/* Status */}
-                             <select
-                                 value={taskFilters.status}
-                                 onChange={(e) => setTaskFilters({...taskFilters, status: e.target.value as any})}
-                                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                             >
-                                 <option value="all">Todos os Status</option>
-                                 <option value="todo">A Fazer</option>
-                                 <option value="in_progress">Em Progresso</option>
-                                 <option value="review">Revisão</option>
-                                 <option value="done">Concluído</option>
-                             </select>
-
-                             {/* Prioridade */}
-                             <select
-                                 value={taskFilters.priority}
-                                 onChange={(e) => setTaskFilters({...taskFilters, priority: e.target.value as any})}
-                                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                             >
-                                 <option value="all">Todas Prioridades</option>
-                                 <option value="low">Baixa</option>
-                                 <option value="medium">Média</option>
-                                 <option value="high">Alta</option>
-                             </select>
-                         </div>
-
-                         {/* Linha 3: Responsável e Setor */}
-                         <div className="grid grid-cols-2 gap-2">
-                             {/* Responsável */}
-                             <select
-                                 value={taskFilters.assigneeId}
-                                 onChange={(e) => setTaskFilters({...taskFilters, assigneeId: e.target.value})}
-                                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                             >
-                                 <option value="all">Todos Responsáveis</option>
-                                 {office.users.map(u => (
-                                     <option key={u.id} value={u.id}>{u.name}</option>
-                                 ))}
-                             </select>
-
-                             {/* Setor */}
-                             <select
-                                 value={taskFilters.sectorId}
-                                 onChange={(e) => setTaskFilters({...taskFilters, sectorId: e.target.value})}
-                                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                             >
-                                 <option value="all">Todos Setores</option>
-                                 {office.sectors.map(s => (
-                                     <option key={s.id} value={s.id}>{s.name}</option>
-                                 ))}
-                             </select>
-                         </div>
-
-                         {/* Linha 4: Filtros de data */}
-                         <div className="grid grid-cols-2 gap-2">
-                             <div>
-                                 <label className="block text-xs font-bold text-slate-500 mb-1">Criado a partir de:</label>
-                                 <input
-                                     type="date"
-                                     value={taskFilters.dateFrom}
-                                     onChange={(e) => setTaskFilters({...taskFilters, dateFrom: e.target.value})}
-                                     className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-xs font-bold text-slate-500 mb-1">Criado até:</label>
-                                 <input
-                                     type="date"
-                                     value={taskFilters.dateTo}
-                                     onChange={(e) => setTaskFilters({...taskFilters, dateTo: e.target.value})}
-                                     className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                 />
-                             </div>
-                         </div>
-
-                         {/* Botão limpar filtros */}
-                         <div className="flex justify-end">
                              <button
-                                 onClick={() => setTaskFilters({
-                                     status: 'all',
-                                     priority: 'all',
-                                     assigneeId: 'all',
-                                     sectorId: 'all',
-                                     dateFrom: '',
-                                     dateTo: '',
-                                     searchText: ''
-                                 })}
-                                 className="text-xs text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 px-3 py-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                 className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${showAdvancedFilters ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-slate-100 text-slate-400'}`}
+                                 title="Filtros avançados"
                              >
-                                 <X size={14} />
-                                 Limpar filtros
+                                 <Settings size={16} />
                              </button>
                          </div>
                      </div>
+
+                     {/* Filtros Avançados (Recolhível) */}
+                     {showAdvancedFilters && (
+                         <div className="p-4 bg-white border-b border-slate-200 space-y-3 animate-in slide-in-from-top-2">
+                             <div className="flex items-center justify-between mb-2">
+                                 <h3 className="text-sm font-bold text-slate-700">Filtros Avançados</h3>
+                                 <button
+                                     onClick={() => setTaskFilters({
+                                         status: 'all',
+                                         priority: 'all',
+                                         assigneeId: 'all',
+                                         sectorId: 'all',
+                                         dateFrom: '',
+                                         dateTo: '',
+                                         searchText: taskFilters.searchText
+                                     })}
+                                     className="text-xs text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1"
+                                 >
+                                     <X size={12} />
+                                     Limpar
+                                 </button>
+                             </div>
+
+                             <div className="grid grid-cols-2 gap-2">
+                                 <select
+                                     value={taskFilters.status}
+                                     onChange={(e) => setTaskFilters({...taskFilters, status: e.target.value as any})}
+                                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                                 >
+                                     <option value="all">📋 Todos os Status</option>
+                                     <option value="todo">📝 A Fazer</option>
+                                     <option value="in_progress">⏳ Em Progresso</option>
+                                     <option value="review">👀 Revisão</option>
+                                     <option value="done">✅ Concluído</option>
+                                 </select>
+
+                                 <select
+                                     value={taskFilters.priority}
+                                     onChange={(e) => setTaskFilters({...taskFilters, priority: e.target.value as any})}
+                                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                                 >
+                                     <option value="all">🎯 Todas Prioridades</option>
+                                     <option value="low">🟢 Baixa</option>
+                                     <option value="medium">🟡 Média</option>
+                                     <option value="high">🔴 Alta</option>
+                                 </select>
+
+                                 <select
+                                     value={taskFilters.assigneeId}
+                                     onChange={(e) => setTaskFilters({...taskFilters, assigneeId: e.target.value})}
+                                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                                 >
+                                     <option value="all">👤 Todos Responsáveis</option>
+                                     {office.users.map(u => (
+                                         <option key={u.id} value={u.id}>{u.name}</option>
+                                     ))}
+                                 </select>
+
+                                 <select
+                                     value={taskFilters.sectorId}
+                                     onChange={(e) => setTaskFilters({...taskFilters, sectorId: e.target.value})}
+                                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                                 >
+                                     <option value="all">🏢 Todos Setores</option>
+                                     {office.sectors.map(s => (
+                                         <option key={s.id} value={s.id}>{s.name}</option>
+                                     ))}
+                                 </select>
+                             </div>
+
+                             <div className="grid grid-cols-2 gap-2">
+                                 <div>
+                                     <label className="block text-xs font-semibold text-slate-500 mb-1">De:</label>
+                                     <input
+                                         type="date"
+                                         value={taskFilters.dateFrom}
+                                         onChange={(e) => setTaskFilters({...taskFilters, dateFrom: e.target.value})}
+                                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700"
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-semibold text-slate-500 mb-1">Até:</label>
+                                     <input
+                                         type="date"
+                                         value={taskFilters.dateTo}
+                                         onChange={(e) => setTaskFilters({...taskFilters, dateTo: e.target.value})}
+                                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700"
+                                     />
+                                 </div>
+                             </div>
+                         </div>
+                     )}
 
                      <div className="flex-1 overflow-auto p-4">
                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
