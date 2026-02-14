@@ -27,13 +27,38 @@ const addCommentSchema = z.object({
   mentions: z.array(z.string()).default([]),
 });
 
+const taskFilterSchema = z.object({
+  status: z.enum(['todo', 'in_progress', 'review', 'done']).optional(),
+  assigneeId: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  sectorId: z.string().optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  searchText: z.string().optional(),
+});
+
 export async function taskRoutes(fastify: FastifyInstance) {
   // Get all tasks
   fastify.get('/', {
     preHandler: [(fastify as any).authenticate],
-  }, async (request) => {
+  }, async (request, reply) => {
     const currentUser = request.user as { id: string; role: string; officeId?: string | null };
-    const { status, assigneeId } = request.query as { status?: string; assigneeId?: string };
+
+    // Parse and validate query parameters
+    const queryParams = request.query as Record<string, string>;
+    const filters = taskFilterSchema.safeParse({
+      status: queryParams.status,
+      assigneeId: queryParams.assigneeId,
+      priority: queryParams.priority,
+      sectorId: queryParams.sectorId,
+      dateFrom: queryParams.dateFrom,
+      dateTo: queryParams.dateTo,
+      searchText: queryParams.searchText,
+    });
+
+    if (!filters.success) {
+      return reply.status(400).send({ error: 'Invalid filter parameters', details: filters.error });
+    }
 
     // CRITICAL: Filter tasks by office
     const whereClause: any = {};
@@ -45,15 +70,56 @@ export async function taskRoutes(fastify: FastifyInstance) {
       };
     }
 
-    // Add additional filters
-    if (status) whereClause.status = status as any;
-    if (assigneeId) whereClause.assigneeId = assigneeId;
+    // Status filter
+    if (filters.data.status) {
+      whereClause.status = filters.data.status;
+    }
+
+    // Priority filter
+    if (filters.data.priority) {
+      whereClause.priority = filters.data.priority;
+    }
+
+    // Assignee filter
+    if (filters.data.assigneeId) {
+      whereClause.assigneeId = filters.data.assigneeId;
+    }
+
+    // Sector filter (requires nested where)
+    if (filters.data.sectorId) {
+      whereClause.assignee = {
+        ...whereClause.assignee,
+        sectorId: filters.data.sectorId,
+      };
+    }
+
+    // Date range filters (filter by createdAt)
+    if (filters.data.dateFrom || filters.data.dateTo) {
+      whereClause.createdAt = {};
+      if (filters.data.dateFrom) {
+        whereClause.createdAt.gte = new Date(filters.data.dateFrom);
+      }
+      if (filters.data.dateTo) {
+        const dateTo = new Date(filters.data.dateTo);
+        dateTo.setHours(23, 59, 59, 999); // End of day
+        whereClause.createdAt.lte = dateTo;
+      }
+    }
+
+    // Search text filter (title, description, or tags)
+    if (filters.data.searchText) {
+      whereClause.OR = [
+        { title: { contains: filters.data.searchText, mode: 'insensitive' } },
+        { description: { contains: filters.data.searchText, mode: 'insensitive' } },
+        { tags: { has: filters.data.searchText } },
+      ];
+    }
 
     const tasks = await prisma.task.findMany({
       where: whereClause,
       include: {
         creator: { select: { id: true, name: true, avatar: true } },
-        assignee: { select: { id: true, name: true, avatar: true, officeId: true } },
+        assignee: { select: { id: true, name: true, avatar: true, officeId: true, sectorId: true, sector: true } },
         comments: {
           take: 3,
           orderBy: { createdAt: 'desc' },
@@ -211,6 +277,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // Build history entries
     const historyEntries: { action: string; userId: string }[] = [];
+    if (result.data.title && result.data.title !== existingTask.title) {
+      historyEntries.push({
+        action: `changed title`,
+        userId: currentUser.id,
+      });
+    }
+    if (result.data.description !== undefined && result.data.description !== existingTask.description) {
+      historyEntries.push({
+        action: `updated description`,
+        userId: currentUser.id,
+      });
+    }
     if (result.data.status && result.data.status !== existingTask.status) {
       historyEntries.push({
         action: `changed status to ${result.data.status}`,
@@ -226,6 +304,22 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (result.data.priority && result.data.priority !== existingTask.priority) {
       historyEntries.push({
         action: `changed priority to ${result.data.priority}`,
+        userId: currentUser.id,
+      });
+    }
+    if (result.data.dueDate !== undefined) {
+      const newDueDate = result.data.dueDate ? new Date(result.data.dueDate).getTime() : null;
+      const oldDueDate = existingTask.dueDate ? existingTask.dueDate.getTime() : null;
+      if (newDueDate !== oldDueDate) {
+        historyEntries.push({
+          action: result.data.dueDate ? `updated due date` : `removed due date`,
+          userId: currentUser.id,
+        });
+      }
+    }
+    if (result.data.tags && JSON.stringify(result.data.tags) !== JSON.stringify(existingTask.tags)) {
+      historyEntries.push({
+        action: `updated tags`,
         userId: currentUser.id,
       });
     }
