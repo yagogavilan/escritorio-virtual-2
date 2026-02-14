@@ -304,6 +304,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
   );
 
   return (
+    <>
     <div className="min-h-screen bg-slate-50 flex font-sans">
       {/* Sidebar */}
       <aside className="w-72 bg-slate-900 text-white flex flex-col hidden md:flex shrink-0 shadow-2xl z-20">
@@ -797,7 +798,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onEnte
           onSave={(data) => handleEditUser(editingUser.id, data)}
         />
       )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {deleteUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <AlertCircle className="text-amber-500" size={24} />
+              Confirmar Exclusão
+            </h3>
+
+            <p className="text-slate-600 mb-4">
+              Deseja realmente deletar o usuário <strong>{deleteUserModal.userName}</strong>?
+            </p>
+
+            {deleteUserModal.taskCount > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <p className="text-amber-800 text-sm font-medium mb-3 flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  Este usuário possui <strong>{deleteUserModal.taskCount} tarefa(s)</strong> atribuída(s).
+                </p>
+
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Transferir tarefas para:
+                </label>
+                <select
+                  value={transferTargetUserId}
+                  onChange={(e) => setTransferTargetUserId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Deixar sem responsável</option>
+                  {users
+                    .filter(u => u.id !== deleteUserModal.userId)
+                    .map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                </select>
+
+                {!transferTargetUserId && (
+                  <p className="text-xs text-slate-500 mt-2 italic">
+                    Se não selecionar um usuário, as tarefas ficarão sem responsável
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setDeleteUserModal(null);
+                  setTransferTargetUserId('');
+                }}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteUser}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                <Trash2 size={16} />
+                Deletar Usuário
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </>
   );
 };
 
@@ -1548,72 +1616,5 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, offices, onClose, o
         </form>
       </div>
     </div>
-  );
-
-    {/* Modal de Confirmação de Exclusão */}
-    {deleteUserModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-          <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <AlertCircle className="text-amber-500" size={24} />
-            Confirmar Exclusão
-          </h3>
-
-          <p className="text-slate-600 mb-4">
-            Deseja realmente deletar o usuário <strong>{deleteUserModal.userName}</strong>?
-          </p>
-
-          {deleteUserModal.taskCount > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-              <p className="text-amber-800 text-sm font-medium mb-3 flex items-center gap-2">
-                <AlertCircle size={16} />
-                Este usuário possui <strong>{deleteUserModal.taskCount} tarefa(s)</strong> atribuída(s).
-              </p>
-
-              <label className="block text-sm font-bold text-slate-700 mb-2">
-                Transferir tarefas para:
-              </label>
-              <select
-                value={transferTargetUserId}
-                onChange={(e) => setTransferTargetUserId(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Deixar sem responsável</option>
-                {users
-                  .filter(u => u.id !== deleteUserModal.userId)
-                  .map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-              </select>
-
-              {!transferTargetUserId && (
-                <p className="text-xs text-slate-500 mt-2 italic">
-                  Se não selecionar um usuário, as tarefas ficarão sem responsável
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={() => {
-                setDeleteUserModal(null);
-                setTransferTargetUserId('');
-              }}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={confirmDeleteUser}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center gap-2"
-            >
-              <Trash2 size={16} />
-              Deletar Usuário
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
   );
 };
